@@ -1,16 +1,157 @@
-# IT5002 - Computer Systems and Applications
+# 1 - Introduction
 
-## Week 1
+## 1.1 Programming Language
+
+- Programming language: a formal language that specifies a set of instructions for a computer to implement specific algorithms to solve problems
+
+![image-20230923211215183](https://images.wu.engineer/images/2023/09/23/image-20230923211215183.png)
+
+- 1st Generation languages: 
+  - Machine language
+  - Directly executable by machine
+  - Machine dependent
+  - Efficient code but difficult to write
+- 2nd generation languages:
+  - Assembly language
+  - Need to be **translated(assembled)** into machine code for execution
+  - Efficient code, easier to write than machine code
+- 3rd generation language:
+  - Closer to English
+  - Need to be **translated (complied or interpreted)** into machine code for execution
+  - Example: FORTRAN, COBOL, C, BASIC
+- 4th generation language:
+  - Require fewer instructions than 3GL
+  - Used with databases (query languages, report generators, forms designers)
+  - Example: SQL, PostScript, Mathematica
+- 5th generation language:
+  - Used mainly AI research
+  - Declarative languages
+  - Functional languages (Lisp, Scheme, SML)
+  - Logic programming (Prolog)
+- “Generational” classification of high level languages (3GL and later) was never fully precise
+- A different classification is based on paradigm
+
+![image-20230923211754385](https://images.wu.engineer/images/2023/09/23/image-20230923211754385.png)
+
+### 1.1.1 C Programming Language
+
+- C is an **imperative procedural language (命令式程序语言)**
+- C provides constructs that map efficiently to typical machine instructions
+- C is a high-level language very close to the machine level, hence sometimes it is called “mid-level”
+
+![image-20230923212016669](https://images.wu.engineer/images/2023/09/23/image-20230923212016669.png)
+
+## 1.2 Abstraction
+
+![image-20230923212034228](https://images.wu.engineer/images/2023/09/23/image-20230923212034228.png)
+
+![image-20230923212047740](https://images.wu.engineer/images/2023/09/23/image-20230923212047740.png)
+
+![image-20230923212116541](https://images.wu.engineer/images/2023/09/23/image-20230923212116541.png)
+
+# 2 - Number Systems
+
+## 2.1 Data Representation
+
+- Basic data types in C:
+  - `int`, with variants `short`, `long`
+  - `float`
+  - `double`
+  - `char`
+- How data is represented depends on its type:
+
+![image-20230923212837454](https://images.wu.engineer/images/2023/09/23/image-20230923212837454.png)
+
+- Data are internally represented as sequence of bits (binary digits). A bit is either 0 or 1
+- Other units:
+  - Byte = 8 bits
+  - Nibble = 4 bits
+  - Word = Multiple of bytes (eg: 1 byte, 2 bytes, 4 bytes, etc) depending on the computer architecture
+- N bits can represent up to $2^n$ values
+  - 2 bits represent up to 4 values (00, 01, 10, 11)
+- To represent M values, $\lceil log_2M \rceil$ bits required
+  - 32 values requires 5 bits; 1000 values require 10 bits
+
+## 2.2 Decimal (base 10) Number System
+
+- A weighted-positional number system
+- Base (also called radix) is 10
+- Symbols/digits = ${0,1,2,3,4,5,6,7,8,9}$
+- Each position has a weight of power of 10
+  - $(7594.36)_{10} = (7\times10^3)+(5\times10^2)+(9\times10^1)+(4\times10^0)+(3\times10^{-1})+(6\times10^{-2})$
+
+## 2.3 Other Number Systems
+
+- In some programming languages/software, special notations are used to represent numbers in certain bases
+  - In C
+    - prefix 0 for octal. Eg: `032` represents the octal number $(32)_8$
+    - prefix 0x for hexadecimal. Eg: `0x32` represents the hexadecimal number $(32)_{16}$
+  - In QTSpim (a MIPS simulator)
+    - prefix 0x for hexadecimal.
+  - In Verilog, the following values are the same
+    - `8'b11110000`: an 8-bit binary value 11110000
+    - `8'hF0`: an 8-bit binary value represented in hexadecimal F0
+    - `8'd240`: an 8-bit binary value represented in decimal 240
+
+## 2.4 Base-R to Decimal Conversion
+
+- $1101.101_2 = 1\times 2^3 + 1\times 2^2 + 1\times 2^0 + 1 \times 2^{-1} + 1\times 2^{-3}=8+4+1+0.5+0.125=13.625_{10}$
+- $572.6_8 = 5\times8^2+7\times8^1+2\times8^0+6\times8^{-1}=320+56+2+0.75=378.75_8$
+- $2A.8_{16}=2\times16^1+10\times16^0+8\times16^{-1}=32+10+0.5=42.5_{10}$
+
+## 2.5 Decimal to Binary Conversion
 
 
 
-## Week 2.1 - MIPS Assembly I
+### 2.5.1 Repeated Division-by-2
 
-### 2.0 Recap
+### 2.5.2 Repeated Multiplication-by-2
+
+## 2.6 Conversion Between Decimal and Other Bases
+
+## 2.7 Conversion Between Bases
+
+## 2.8 Binary to Octal/Hexadecimal Conversion
+
+## 2.9 ASCII Code
+
+## 2.10 Negative Numbers
+
+### 2.10.1 Sign-and-Magnitude
+
+### 2.10.2 1s Complement
+
+### 2.10.3 2s Complement
+
+### 2.10.4 Comparisons
+
+### 2.10.5 Complement on Fractions
+
+### 2.10.6 2s Complement Addition/Subtraction
+
+### 2.10.7 1s Complement Addition/Subtraction
+
+### 2.10.8 Excess Representation
+
+## 2.11 Real Numbers
+
+### 2.11.1 Fixed-point Representation
+
+### 2.11.2 Floating-point Representation
 
 
 
-### 2.1 Instruction Set Architecture (ISA)
+
+
+
+
+# 3 - MIPS Assembly I
+
+### 3.0 Recap
+
+
+
+### 3.1 Instruction Set Architecture (ISA)
 
 > 指令集架构（Instruction Set Architecture, ISA）定义了一个计算机系统可以执行的低级机器语言指令集，也就是计算机硬件能够理解和执行的指令。
 >
@@ -46,7 +187,7 @@
 
     - > 由于存在上述的抽象，同一个指令集架构可以有多种不同的硬件实现。这些实现可能在成本和性能上有所不同。例如，高性能的服务器处理器和低功耗的移动设备处理器可能都遵循相同的ISA，但它们在微架构（即具体的硬件实现）上会有所不同。尽管如此，由于它们共享相同的ISA，它们仍然可以运行相同的软件。这种抽象确保了软件的兼容性和长期稳定性。
 
-### 2.2 Machine Code vs. Assembly Language
+### 3.2 Machine Code vs. Assembly Language
 
 - Machine Code
 
@@ -77,7 +218,7 @@
 
   - When considering performance, only read instructions are counted, pseudo-instructions are not counted
 
-### 2.3 Walkthrough
+### 3.3 Walkthrough
 
 #### The components
 
@@ -186,7 +327,7 @@ if i < 10, repeat
 
   - **Control flow:** Change the sequential execution
 
-### 2.4 General Purpose Registers
+### 3.4 General Purpose Registers
 
 > General Purpose Registers（GPR，通用寄存器）是中央处理器（CPU）内部的一组寄存器，这些寄存器不是为某个特定的任务或操作而设计，而是为了存储临时数据或在指令执行过程中用作操作数。通常，汇编语言编程或机器语言编程中的指令可以直接访问和操作这些寄存器。
 >
@@ -216,7 +357,7 @@ if i < 10, repeat
 > - \$at (register 1) is reserved for the assembler
 > - \$k0-\$k1 (register 26-27) are reserved for the operation system
 
-### 2.5 MIPS Assembly Language
+### 3.5 MIPS Assembly Language
 
 > MIPS assembly language 是 MIPS 架构的汇编语言。MIPS（Microprocessor without Interlocked Pipeline Stages）是一种基于RISC（Reduced Instruction Set Computer）原则的微处理器架构，旨在简化指令集以提高性能。以下是有关MIPS汇编语言的一些关键点：
 >
@@ -282,7 +423,7 @@ if i < 10, repeat
 	- `add \$s0, \$s1, \$zero`
 	- `move \$s0, \$s1`
 
-### 2.6 Logical Operations
+### 3.6 Logical Operations
 
 #### Overview
 
@@ -350,11 +491,11 @@ if i < 10, repeat
 
 
 
-### 2.7 Large Constant: Case Study
+### 3.7 Large Constant: Case Study
 
 
 
-## Week 2 - MIPS II
+## 4 - MIPS II
 
 ### 2.8 Memory Or
 
