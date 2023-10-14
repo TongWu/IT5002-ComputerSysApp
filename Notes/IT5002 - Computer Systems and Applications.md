@@ -1058,24 +1058,74 @@ if i < 10, repeat
 - Decision make in high-level language:
   - `if` and `goto` statement
   - MIPS decision making instructions are similar to `if` statement with a `goto`
+- Decision making instructions
+  - Alter the control flow of the program
+  - Change the next instruction to be executed
+
+- Two types of decision-making statements in MIPS
+  - Conditional (branch)
+    `bne $t0, $t1, label`
+    `beq $t0, $t1, label`
+  - Unconditional (jump)
+    `j label`
+
+- A label is an anchor in the assembly code to indicate point of interest, usually as branch target
+  - Labels are NOT instructions
+
+
+> 1. **Decision make in high-level language**:
+>    - 当我们在高级编程语言（如 C、Java 或 Python）中进行决策时，通常使用的是 `if` 语句和 `goto` 语句。
+>    - MIPS 的决策制定指令与高级编程语言中的 `if` 语句相似，并经常与 `goto` 语句一起使用，以决定程序的执行流程。
+> 2. **Decision making instructions**:
+>    - 这些指令用于改变程序的控制流程。
+>    - 它们会改变下一条要执行的指令，从而使程序可能跳转到不同的部分执行。
 
 ### 4.3.1 Conditional Branch: `beq` and `bne`
 
-
+- Processor follows the branch only when the condition is satisfied (True)
+- `beq $r1, $r2, L1`
+  - Go to statement labeled `L1` if the value in register `$r1` equals the value in register `$r2`
+  - `beq` is “branch if equal”
+  - C code: `if (a==b) goto L1`
+- `bne $r1, $r2, L1`
+  - Go to statement labeled `L1` if the value in register `$r1` does not equal the value in register `$r2`
+  - `bne` is “branch if not equal”
+  - C code: `if (a != b) goto L1`
 
 ### 4.3.2 Unconditional Jump: `j`
 
-
+- Processor always follows the branch
+- `j L1`
+  - Jump to label `L1` unconditionally
+  - C code: `goto L1`
+- Technically equivalent to such statement
+  `beq $s0, $s0, L1`
 
 ### 4.3.3 IF statement
 
+![image-20231014210747922](https://images.wu.engineer/images/2023/10/14/image-20231014210747922.png)
 
+> The right one is more efficient
+
+![image-20231014211003957](https://images.wu.engineer/images/2023/10/14/image-20231014211003957.png)
+
+> Re-write to `beq`
+>
+> ```assembly
+> beq $s3, $s4, Else
+> sub $s0, $s1, $s2
+> j Exit
+> Else: add $s0, $s1, $s2
+> Exit:
+> ```
 
 ### 4.3.4 Exercise #1: IF statement
 
-
+![image-20231014212747843](https://images.wu.engineer/images/2023/10/14/image-20231014212747843.png)
 
 ## 4.4 Loops
+
+![image-20231014232318823](https://images.wu.engineer/images/2023/10/14/image-20231014232318823.png)
 
 ### 4.4.1 Exercise #2: FOR loop
 
@@ -1083,11 +1133,73 @@ if i < 10, repeat
 
 ### 4.4.2 Inequalities
 
+- We have `beq` and `bne`, what about branch-if-less-than?
+  - There is no real `blt` instruction in MIPS
+- Use `slt` (set on less than) or `slti`
 
+```assembly
+slt $t0, $s1, $s2
+```
+
+```c
+if ($s1 < $s2)
+	$t0 = 1;
+else
+	$t0 = 0;
+```
+
+- To build a `blt $s1, $s2, L` in instruction
+
+```assembly
+slt $t0, $s1, $s2
+bne $t0, $zero, L
+```
+
+```c
+if ($t1 < $t2)
+	goto L;
+```
+
+- This is another example of pseudo-instruction
+  - Assembler translates (`blt`) instruction in an assembly program into the equivalent MIPS(two) instructions
 
 ## 4.5 Array and Loop
 
+- Typical example of accessing array elements in a loop:
 
+
+
+> Count the number of zeros in an Array A
+>
+> - A is word array with 40 elements
+> - Address of A[] -> \$t0, Result -> \$t8
+>
+> **C code:**
+>
+> ```c
+> result = 0
+> i = 0
+> while (i<40) {
+> 	if (A[i] == 0)
+> 		result++;
+> 	i++
+> }
+> ```
+>
+> ```assembly
+> addi $t8, $zero, 0				# Assign variable "result" with value 0
+> addi $t1, $zero, 0				# Assign variable "i" with value 0
+> addi $t2, $zero, 160			# Assign a temp anoymous variable with value 160, point to endpoint of array
+> loop: bge $t1, $t2, end			# Comparing address
+> 	  lw  $t3, 0($t1)			# $t3 <- A[i]
+> 	  bne $t3, $zero, skip		# if A[i] != 0, then skip
+> 	  addi $t8, $t8, 1			# result++
+> skip: addi $t1, $t1, 4			# move to the next item
+> 	  j loop
+> end:
+> ```
+>
+> 
 
 ## 4.6 Exercises
 
