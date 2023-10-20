@@ -2,19 +2,23 @@
 
 - 1s complement: Flip all bits
 - 2s complement: Flip all bits then add 1
-- Ns complement: 
-- 
+- Ns complement: For Ns complement negative number, 首先计算其正数在该进制下的数字，再使用比其大一位的10…0减去正数以得到负数。例如$-213_{10}$转换为7进制的7s complement,首先计算$213_{10}=423_7$，再取$1000_7-423_7=244_7$
+
 - Fixed point representation: `010.11(2)` = $0\times2^2+1\times 2^1+0\times 2^0+1\times 2^{-1}+1\times2^{-2}=2.75$
 - Floating point representation: 
   - Use scientific notation to convert binary numbers to $1.\text{fraction}\times2^{\text{exponent}}$
   - Sign bit (1): 1 for negative, 0 for positive
   - Exponent bit (E): the exponent value of the radix, for example $1.\text{fraction}\times2^{\text{4}}$, the exponent is 4, where the exponent bit is $0100_2$
   - Mantissa bit (M): the fractional part, since IEEE 754 has one hidden bit, so the integer part is ignored. Truncate if the number of fractional parts is greater than the specified value. If it is less than the specified value, write it and then continue from the beginning
-  - Excess: 
+- Excess: The excess number $n$ is the offset, for example, in excess-4096 16 bit number system, the most negative number is `0000 0000 0000 0000` which is `0-4096=-4096`. The most positive number is `65536-1-4096=61439`
 
+## Data size
 
+1 byte = 8 bits
 
+1 character in ASCII system is 1 byte
 
+1 MIPS instruction is 4 bytes, `opcode = 6 bits` `rs = 5 bits` `rt = 5 bits` `rd = 5 bits` `shamt = 5 bits` `immediate=  16 bits` `address = 26 bits`
 
 ## Datapath:
 
@@ -127,6 +131,36 @@ $$
 \text{Speedup}=\frac {T_{seq}}{T_{pipeline}} \approx N
 $$
 
-
 ## Cache
+
+### Cache hit and miss
+
+$$
+\text{Average Access Time}=\text{Hit rate} \times \text{Hit time} + (1-\text{Hit rate}) \times \text{Miss Penalty}
+$$
+
+- `Hit time` = time to access the cache, `Miss Penalty` = time to access the cache + memory
+
+![image-20231020180758182](https://images.wu.engineer/images/2023/10/20/image-20231020180758182.png)
+
+- Additional `valid bit` is in the tag field as MSB
+
+### Write policy
+
+- Write through: 当缓存中的数据被修改时，同步写入主内存。优点是一致性高，缺点是额外的时间开销。使用write buffer当作缓冲。
+- Write back: 引入dirty bit，只有在缓存块被替换时，脏位为1的缓存块才会写回memory
+
+### Write miss policy:
+
+- Write allocate: 从主内存将数据块加载到缓存中，然后更改相应的数据。是否立即写回主存取决于write policy
+- Write around: 更改的数据直接写入主存，缓存不参与操作。这意味着后续读取会导致缓存缺失，这个策略通常用于不太会用到的数据，或缓存很快会被填满的情况
+
+### Set Associative
+
+- 缓存被分为多个set，每个set包含几个block。例如2-way set associative cache就是每个set有两个block
+- 原先的index field变为set index field，即决定写入哪个set
+
+Block replacement policy:
+
+- LRU (Least recently used): hit的block被排到最前面，如果需要替换block，则替换最后（最不常用）的block
 
