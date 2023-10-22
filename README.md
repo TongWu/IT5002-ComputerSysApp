@@ -1,8 +1,6 @@
 # IT5002 - Computer Systems and Applications
  
-## 1. Introductions
-
-### 1.1 Disclaimer and References
+## Disclaimer and References
 
 - This repo is the self-organized warehouse for National University of Singapore, School of Computing, Course IT5002: Computer Systems and Applications.
 
@@ -14,6 +12,6 @@
 
 - **Do not share any content in this repo to anyone without permission, including course material, video, lab assignment and notes.**
 
-### 1.2 Notes
+## Notes
 
-The self-orgnised note can be found at [this link](https://wiki.wu.engineer/NationalUniversityOfSingapore/IT5001-SoftwareDevFundamental) (The UI is Chinese Version), or navigate to the 'Notes' folder in this repo.
+The self-orgnised note can be found at [this link](https://wiki.wu.engineer/zh/NationalUniversityOfSingapore/IT5002-ComputerSysApplications) (The UI is Chinese Version), or navigate to the 'Notes' folder in this repo.
