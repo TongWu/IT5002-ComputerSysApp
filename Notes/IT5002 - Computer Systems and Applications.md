@@ -3180,4 +3180,265 @@ Other replacement policies:
 
 ![image-20231018195854923](https://images.wu.engineer/images/2023/10/18/image-20231018195854923.png)
 
+# 11 - Introduction to Operation Systems
+
+## 11.1 Brief Introduction & Basic Terminology
+
+### What are Operation Systems (OS)
+
+- An “operation system” is a suite (i.e., a collection) of specialized software that:
+  - Gives you access to the hardware devices like disk drives, printers, keyboards and monitors
+  - Controls and allocate system resources link memory and processor time
+  - Gives you the tools to customize your and tune your system
+- Usually consists of several parts:
+  - Bootloader - First program run by the system on start-up. Loads remainder of the OS kernel.
+    - On Windows systems this is found in the Master Boot Record (MBR) on the hard risk
+  - Kernel - The part of the OS that runs almost continuously
+    - We will mainly foucus on this part
+  - System Programs - Programs provided by the OS to allow:
+    - Access to programs
+    - Configuration of the OS
+    - System maintenance, etc.
+
+>   -   **操作系统的定义**：操作系统是一套专业软件的集合，它负责以下任务：
+>
+>       -   **硬件设备的访问**：允许用户访问和控制硬件设备，如磁盘驱动器、打印机、键盘和显示器等。
+>       -   **系统资源的控制与分配**：管理和分配系统资源，如内存和处理器时间。
+>       -   **系统定制和调优工具**：提供工具，允许用户自定义和调整系统设置以适应其需求。
+>
+>   -   **操作系统的组成部分**：操作系统通常包含几个主要部分：
+>
+>       -   **引导加载程序（Bootloader）**：是系统启动时运行的第一个程序。它负责加载操作系统的其余部分（即内核）。在Windows系统中，引导加载程序通常位于硬盘驱动器的主引导记录（MBR）中。
+>
+>       -   **内核（Kernel）**：是操作系统的核心部分，几乎持续不断地运行。内核负责管理系统级的操作，如进程管理、内存管理、设备驱动程序的执行等。
+>
+>       -   系统程序（System Programs）
+>
+>           这些是操作系统提供的程序，用于：
+>
+>           -   访问程序。
+>           -   配置操作系统。
+>           -   进行系统维护等。
+
+### Basic Terminology
+
+![image-20231121154035932](https://images.wu.engineer/images/2023/11/21/202311211540449.png)
+
+## 11.2 How an OS works
+
+### 11.2.1 Bootstrapping
+
+>   Bootstrapping又被称为引导过程,是计算机启动时加载操作系统到内存中的过程.
+>
+>   当开启计算机时，CPU首先在一个预定的位置（如x86架构中的BIOS或UEFI固件）寻找启动指令。这个过程称为自检（POST），之后，控制权(系统执行指令的能力和权限)被交给引导加载程序（Bootloader）。在Windows系统中，这个引导加载程序通常位于硬盘的主引导记录（MBR）或者近年来使用的GUID分区表（GPT）的等效区域。
+>
+>   引导加载程序有责任：
+>
+>   1.  识别并初始化系统硬件。
+>   2.  加载操作系统内核到内存中并执行它。
+>
+>   这个过程称为“引导”或“启动”，因为它好比是计算机通过其自身的引导带（bootstrap）来“提升”自己进入一个可操作的状态。这个术语来源于“自力更生”的表述，意指一个系统能够不依赖外部输入自主地启动。
+>
+>   在内核被加载并执行之后，它接管系统，初始化其它系统级别的软件，最终提供用户接口，如命令行或图形用户界面。这样，计算机便准备好接收用户输入，并执行程序了。
+
+The OS is not present in memory when a system is “cold started”
+
+-   When a system is first started up, memory is completely empty
+-   We need to load system into memory
+
+We start first with a bootloader
+
+-   Bootloader is a tiny program in the first (few) sector(s) of the hard-disk
+    -   The first sector is generally called the “boot sector” or “master boot record (MBR)” for this reason
+-   The bootloader’s job is to load up the main part of the OS and start it up
+
+### 11.2.2 Process Management
+
+#### Context Switching
+
+>   Context switching 是指操作系统内核在多个进程（或线程）之间切换执行权的过程。这是多任务操作系统进行任务管理的基本功能之一，允许单个处理器在多个任务之间迅速切换，从而给用户一种同时执行多个程序的错觉。
+>
+>   具体来说，在进行 context switching 时，操作系统会执行以下步骤：
+>
+>   1.  **保存状态**：操作系统会保存当前正在执行的进程（或线程）的状态信息。这通常包括程序计数器、寄存器内容、系统调用状态、内存映射等。
+>   2.  **加载状态**：操作系统随后加载另一个进程（或线程）的状态信息到这些硬件组件中。这个过程包括更新程序计数器以指向新任务的代码位置，恢复寄存器的内容，以及设置内存访问权限等。
+>   3.  **执行新任务**：加载新状态后，处理器开始执行选中的新任务。
+
+A shortage of cores
+
+-   A typical system today has two to four “cores”
+    -   Cores: CPU unit that can execute process
+-   While, we have much more than 4 process to run
+
+To manage these processes, we share a core very quickly between multiple processes. (slicing)
+
+Key points:
+
+-   Entire sharing must be transparent
+-   Processes can be suspended and resumed arbitrarily, which means it is not usually possible to build in this “sharing” into a process
+
+Solution:
+
+-   Save the “context” of the process to be suspended
+-   Restore the “context” of the process to be re-started
+
+#### Scheduling
+
+We see that a single system may have multiple processing units (cores), but there will generally be many more processes than cores. We already settled this problem by `context switching`.
+
+But how do we choose which process to run if several processes want to run?
+
+### 11.2.3 File Systems
+
+An OS must support persistent storage
+
+-   This is storage whose contents do not disappear when the system is turned off
+
+The primary way to do this is through a “file system” on persistent storage decices like hard drives.
+
+-   A set of data structures on disk and within the OS kernel memory to orgranize persistent data
+
+![image-20231121165034730](https://images.wu.engineer/images/2023/11/21/202311211650751.png)
+
+### 11.2.4 Interfacing to Hardware
+
+![image-20231121165115609](https://images.wu.engineer/images/2023/11/21/202311211651113.png)
+
+![image-20231121165134339](https://images.wu.engineer/images/2023/11/21/202311211651837.png)
+
+![image-20231121165140235](https://images.wu.engineer/images/2023/11/21/202311211651742.png)
+
+### 11.2.5 Memory Management
+
+All programs require memory to work:
+
+-   To store instructions and (temp) data
+
+OS must try to provide memory requested by the program
+
+Note:
+
+-   Program can also ask for (and release) memory dynamically using `new`, `delete`, `malloc`(memory allocation function in C std library) and `free`
+
+![image-20231121194901926](https://images.wu.engineer/images/2023/11/21/202311211949103.png)
+
+### 11.2.6 Virtual Memory Management
+
+>   Difference between memory and virtual memory:
+>
+>   1.  **内存（物理内存或RAM）**：
+>       -   **直接访问**：物理内存是由实际的硬件内存条组成的。CPU可以直接对其进行访问。
+>       -   **有限的容量**：物理内存的容量是有限的，由安装在计算机上的内存条的大小决定。
+>       -   **快速存取**：物理内存的存取速度非常快，它是CPU执行程序和存储运行中程序数据的主要场所。
+>   2.  **虚拟内存**：
+>       -   **扩展内存容量**：虚拟内存是一种内存管理技术，它使得操作系统能够使用硬盘空间作为内存使用，从而扩展了可用的内存容量。
+>       -   **内存抽象**：虚拟内存通过分页（paging）或分段（segmentation）机制为每个程序提供了一个连续的内存地址空间，这是对物理内存的一种抽象。
+>       -   **存取较慢**：虚拟内存使用硬盘来存储数据，因此它比物理内存慢得多。当系统物理内存不足时，操作系统会将部分数据从物理内存交换到虚拟内存中，这个过程称为换页（paging）或交换（swapping）。
+>
+>   物理内存是计算机中实际存在的硬件部分，而虚拟内存是一种软件层面的抽象，它使用硬盘空间来模拟更大的内存容量。虚拟内存允许计算机运行内存需求超过物理内存容量的程序，但这种超额部分的性能会因为硬盘的使用而降低。
+
+For cost/speed reasons memory is organized in a hierarchy:
+
+![image-20231121195352497](https://images.wu.engineer/images/2023/11/21/202311211953013.png)
+
+The lowest level is called “virtual memory”, and is the slowest but cheapest memory.
+
+-   Virtual memory using hard disk space to provide a contineous memory address space (using paging and segmentation)
+-   **Virtual memory is an abstraction for memory**
+-   Allow us to fit much more instructions and data than memory allows
+
+### 11.2.7 Security
+
+Here security means controlling access to various resources
+
+-   Data (files)
+    -   Encryption
+    -   Access control lists
+-   Resources
+    -   Access to the hardware (biometric, password)
+    -   Memory access
+    -   File access
+
+## 11.3 Monolithic Kernels (整体内核)
+
+>   Monolithic Kernels（整体内核）是一种操作系统内核的设计方式，它将大部分的系统服务和驱动程序集成到内核空间中。这种设计与微内核（Microkernel）或层次内核（Layered Kernel）形成对比。
+>
+>   整体内核的特点包括：
+>
+>   -   **集中式管理**：几乎所有的系统管理任务，如进程管理、内存管理、文件系统以及网络堆栈等，都在一个大的内核空间中执行。
+>   -   **性能**：因为服务和驱动程序在内核空间运行，它们可以直接访问硬件和内存，这通常会带来更好的性能，尤其是在系统调用和设备操作时。
+>   -   **简化的通信**：内核中的不同服务和模块之间可以直接进行函数调用，而无需复杂的消息传递机制。
+>   -   **安全与稳定性风险**：如果内核的任何部分发生故障，整个系统可能会受到影响。这意味着整体内核可能比微内核更容易受到单点故障的影响。
+>   -   **可移植性和维护性**：整体内核因为其复杂性和庞大的代码基础，可能在可移植性和维护性方面面临挑战。
+
+-   Kernals can be monolithic or microkernel
+-   Monolithic kernels:
+    -   All major parts of the OS - devices drivers, file systems, IPC, running in “kernel space”
+        -   Kernel space generally means an elevated execution mode where certain privileged operations are allowed
+    -   Bits and pieces of the kernel can be loaded and unloaded at runtime (using `modprobe` in Linux)
+    -   Examples of monolithic kernels: Linux, Windows
+
+>   整体内核的主要特征:
+>
+>   -   **操作系统的主要部分在内核空间运行**：这包括设备驱动程序、文件系统、进程间通信（IPC）等。这些都是操作系统的核心组件，它们在内核空间运行，这是一个有高权限的执行环境。
+>   -   **内核空间**：内核空间是指保留给操作系统内核的内存区域，并且在这个空间中运行的代码可以执行特权操作，如直接访问硬件或管理系统资源。在大多数现代操作系统中，内核空间与用户空间相隔离，后者是应用程序运行的环境。
+>   -   **内核的模块化**：尽管是整体内核，但现代操作系统（如Linux）允许某些内核组件以模块化的形式存在，可以在运行时动态加载和卸载。在Linux中，`modprobe`工具用于管理这些内核模块：加载新的模块以增加功能，或者卸载模块以释放资源或因为不再需要某个特定的硬件支持。
+>
+>   通过动态加载和卸载内核模块，系统管理员可以根据需要调整系统的硬件支持和功能，而无需重启系统。这提供了一种灵活性，使得整体内核的系统能够更加适应不断变化的硬件和软件环境。
+
+![image-20231121200434047](https://images.wu.engineer/images/2023/11/21/202311212004569.png)
+
+### 11.4 Microkernels
+
+In modular kernels:
+
+-   Only the “main” part of the kernel is in “kernel space”
+    -   Which contains the important stuff like the scheduler, process management and memory management
+-   The other parts of the kernel operate in “user space” as system services
+    -   The file systems, device drivers
+
+Example of microkernels: MacOS
+
+>   在微内核设计中，只有核心的功能部分运行在内核空间，而其他部分则可以以系统服务的形式运行在用户空间。
+>
+>   具体来说：
+>
+>   -   **核心内核在内核空间**：微内核中，只有最关键的组成部分，如调度器（负责决定哪个进程获得CPU时间）、进程管理（负责创建和终止进程）、内存管理（负责分配和回收内存资源）等运行在内核空间。这部分内核是始终加载的，因为它们对于操作系统的运行至关重要。
+>   -   **其他内核部分在用户空间**：与整体内核不同，微内核中的其他组件，如文件系统和设备驱动程序，可能作为系统服务在用户空间中运行。这意味着它们虽然是内核功能的一部分，但它们的执行环境与普通的用户级应用程序相同。
+>
+>   这种设计的优势在于：
+>
+>   -   **安全性和稳定性**：由于非核心组件在用户空间运行，它们即使失败也不太可能导致整个系统崩溃。这增加了系统的整体稳定性。
+>   -   **灵活性**：在用户空间运行的系统服务可以像普通应用程序一样启动和停止，不需要重新启动内核来更改这些服务。
+
+## 11.5 External View of an OS
+The kernel itself is not very useful
+- Provides key functionality, but need a way to access all this function
+We need other components:
+- System libraries (`stdio`, `unistd`, etc)
+- System services (creat, read, write, ioctl, sbrk, etc)
+- OS Configuration (task manager, setup, etc)
+- System programs, (Xcode, vim, etc)
+- Shells
+- Admin tools
+- User applications
+## 11.6 System Calls
+System calls are calls made to the "Application Program Interface" (API) of the OS.
+- UNIX and similar OS mostly follow the POSIX standard
+	- Based on C
+	- Programs become more portable
+- Windows follows the WinAPI standard
+![image.png](https://images.wu.engineer/images/2023/11/21/202311212021582.png)
+## 11.7 User Mode + Kernel Mode
+- Want to protection between kernel and executing program
+- Program (actually process) runs in user mode
+- During system call - running kernel code in kernel mde
+- After system call, back to user mode
+
+How to switch mode?
+Use privilege mode switching instructions:
+- Syscall instruction
+- Software interrupt - instruction which raises specific interrupt from software
+![image.png](https://images.wu.engineer/images/2023/11/21/202311212112988.png)
+![image.png](https://images.wu.engineer/images/2023/11/21/202311212112475.png)
 
