@@ -3442,3 +3442,131 @@ Use privilege mode switching instructions:
 ![image.png](https://images.wu.engineer/images/2023/11/21/202311212112988.png)
 ![image.png](https://images.wu.engineer/images/2023/11/21/202311212112475.png)
 
+# 12 - Process Management
+## 12.1 Program vs. Process
+A program consists of:
+- Machine instructions (and possibly source code)
+- Data
+- A program exist as a file on the disk. E.g. `command.exe`
+A process consists of:
+- Machine instructions (and possibly source code)
+- Data
+- Context
+- Exists as instructions and data in **memory**
+- MAY be executing on the CPU
+>一个程序（program）是一组指令，它被写入计算机系统的存储器中，以便在需要时执行。程序是一种静态的实体，它包含了处理任务所需的所有指令和数据，但它本身并没有具体的执行状态。
+>然而，进程（process）是执行中的程序的实例。当一个程序被加载到计算机的内存并开始执行时，它成为一个进程。进程是动态的，它有自己的执行状态和运行的上下文。每个进程都有自己的内存空间、程序计数器（记录下一个将被执行的指令的地址）和一组寄存器等。进程可以独立地执行，并与其他进程并行运行。每个进程都有独立的资源分配和管理。
+>总结起来，程序是一组指令和数据的集合，而进程是程序在执行过程中的实例，具有独立的执行状态和资源。
+
+- A single program can produce multiple processes
+	- E.g., `chrome.exe` is a single program
+	- But every tab in Chrome is a new process
+![Untitled](https://images.wu.engineer/images/2022/11/02/Untitledfd302936088473ef.png)
+
+## 12.2 Interrupts
+
+> Definition:
+> IRQ信号: 是Interrupt ReQuest(中断请求)的简称.他是硬件设备用来通知CPU其需要处理某些事件的一种机制。每个IRQ信号都对应于计算机中的特定硬件设备或内部系统。当设备需要CPU的注意时，其会发送一个IRQ信号给CPU。
+> 
+> 
+
+When a device needs attention from the CPU, it triggers what is called an "interrupt":
+- Each device is connected to the CPU via an input called an "Interrupt Request" or IRQ line
+	- When a device needs attention, it pulls the IRQ line HIGH or LOW (dependin on whether line is "active high" or "active low")
+- This line is checked at the end of WB (Write Back) stage in the CPU Execution Cycle
+- Diagrams below show the CPU's program execution flow when an interrupt occurs
+![image.png](https://images.wu.engineer/images/2023/11/22/202311221333097.png)
+
+- If line has been pulled, CPU interrupts the code it is currently running to run code to attend to the device
+	- Current PC (Program Counter) is pushed onto the stack
+	- CPU consults and "interrupt vector table" to look for the address of the "interrupt service routine" or ISR - a small bit of code that will read/write/tend to the device
+	- This address is loaded into PC, and the CPU starts executing the handler
+	- When the handler exits, the previous PC value is popped off the stack and back into PC, and execution resumes at the interrupted point
+
+> 中断是硬件设备通知CPU它需要处理某个事件的一种机制。
+> - **中断请求（IRQ）**：每个设备通过一个称为中断请求（Interrupt Request，简称IRQ）的输入线与CPU连接。当设备需要CPU的注意时，它会将IRQ线拉高或拉低，这取决于线路是活动高（active high）还是活动低（active low）。
+> - **CPU执行周期的WB阶段**：在CPU的执行周期中，写回（Write Back，简称WB）阶段是最后一个阶段，在这个阶段结束时，CPU会检查IRQ线。
+> - **中断的处理**：如果检测到IRQ线被激活，CPU会中断当前正在执行的代码，转而执行处理该设备的代码。这个过程包括以下步骤：
+> - **保存程序计数器（PC）**：当前的程序计数器（PC），它指示CPU当前执行到程序的哪个位置，会被推入（push）栈中以便之后能回到中断前的执行点。
+> - **查询中断向量表**：CPU会查看一个特殊的表——中断向量表，以找到对应的中断服务例程（Interrupt Service Routine，简称ISR）的地址。ISR是一段专门用来处理特定设备请求的小代码。
+> - **执行中断处理程序**：找到ISR的地址后，这个地址被加载到PC中，然后CPU开始执行这个中断处理程序
+> - **恢复执行**：中断处理程序执行完毕后，之前保存的PC值会从栈中弹出（pop），重新加载到PC中，CPU随后会从被中断的地方继续之前的程序执行。
+>   
+>  这个机制允许CPU在不同的任务和设备请求之间高效切换，确保对紧急事件的快速响应，同时也保持程序执行的连贯性。
+
+- The CPU asserts the interrupt acknowledge (IA) line to tell the device that its request has been handled
+	- Sometimes the CPU will de-assert the IRQ line instead of employing a separate IA line
+- Interrupts are key to allowing us to run multiple processes on a CPU:
+	- A hardware device called a “timer” will interrupt the CPU every ms
+	- Interrupt handler will switch to a new process
+
+> - **中断确认（IA）信号**：当CPU开始处理一个设备的中断请求时，它会发出一个中断确认（Interrupt Acknowledge，简称IA）信号告知该设备它的请求已经被接受。这样设备就知道它的信号已经被CPU注意到，并将开始被处理。
+> - **取消IRQ信号**：有时候，CPU处理完中断请求后，会直接取消（de-assert）IRQ线，而不是使用单独的IA线。这个行为是为了清除中断请求，让系统知道该请求已经得到处理，以便设备知道不需要继续发出中断请求。
+> - **中断在多进程运行中的作用**:
+> 	- **定时器**：硬件设备如定时器（timer）会周期性地（例如，每毫秒）中断CPU。这种中断被用于操作系统的时间管理和进程调度。
+> 	- **中断处理程序切换进程**：当定时器中断发生时，中断处理程序会执行，它可能会选择停止当前运行的进程并切换到另一个进程。这是实现时间共享和多任务处理的关键机制
+
+## 12.3 Execution Modes
+- Programs usually run sequentially
+	- Each instruction is executed one after other
+- Having multiple cores or CPUs allow parallel (concurrent) execution
+	- Streams of instructions with no dependencies are allowed to executed together
+- A multitasking OS allows several programs to run concurrently
+	- Interleaving, or "time slicing"
+
+![image.png](https://images.wu.engineer/images/2023/11/22/202311221535779.png)
+
+## 12.4 Processes and Process Management
+
+### 12.4.1 The Process Model
+- We will assume a single processor with a single core.
+	- This is a legitimate assumption because in general the number of processes >> the number of cores
+	- So each core must still switch between processes
+
+- In single-core single processor:
+	- At any one time, at most one process can execute
+![image.png](https://images.wu.engineer/images/2023/11/22/202311221539454.png)
+
+- Figure (b) shows what "appears" to be happening in a single processor system running multiple processes:
+	- There are 4 processes each with its own program counter (PC) and registers
+	- All 4 processes run independently of each other at the same time
+
+- Figure (a) shows what actually happens
+	- There is only a single PC and a single set of registers
+	- When one process ends, there is a "context switch" or "process switch":
+		- PC, all registers and other process data for Process A is copied to memory
+		- PC, register and process data for Process B is loaded and B starts executing
+	- Figure (c) illustrates how processes A to D share CPU time
+> 图b是虚假的单核处理器中多个进程的运行模式。图a和图c是真实的。在实际情况下，单核处理器中运行多个进程时，多个进程共享程序计数器和寄存器。
+> 
+> 图a和b的运行模式是不一样的。在a中，其运行模式为运行完一个进程后，再运行下一个进程。在图c中，其使用了slicing，即将多个进程分为了几个小的切片，在运行时间中多次，重复的运行每个进程的切片。由于每个运行时间循环极短，所以在用户视角中，这和并行运行没有区别。
+
+### 12.4.2 Process States
+- A process can be in one of 3 possible states:
+	- Running
+		- The process is actually being executed on the CPU
+	- Ready
+		- The process is ready to run but not currently running
+		- A "scheduling algorithm" is used to pick the next process for running
+	- Blocked
+		- The process is waiting for "something" to happen so it is not ready to run yet
+		- E.g., include waiting for inputs from another process
+- The diagram below shows the 3 possible states and the transitions between them
+	1. Process blocks for input
+	2. Scheduler picks another process
+	3. Input becomes available
+![image.png](https://images.wu.engineer/images/2023/11/22/202311221556594.png)
+
+- The figure below shows how the processes are organised
+	- The lowest layer selects (schedules) which process to run next
+		- This is subject to "scheduling policies"
+![image.png](https://images.wu.engineer/images/2023/11/22/202311221557674.png)
+
+### 12.4.3 Switching between Processes
+- When a process runs, the CPU needs to maintain a lot of information about it. This is called the "process context"
+	- CPU register values
+	- Stack pointers
+	- CPU Status Word Register
+		- This maintains information about whether the previous instruction resulted in an overflow or a "zero", whether interrupts are enabled
+		- This is needed for branch instructions - assembly equivalents of `if` statements
+![image.png](https://images.wu.engineer/images/2023/11/22/202311221600714.png)
