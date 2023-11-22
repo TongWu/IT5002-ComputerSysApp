@@ -3570,3 +3570,96 @@ When a device needs attention from the CPU, it triggers what is called an "inter
 		- This maintains information about whether the previous instruction resulted in an overflow or a "zero", whether interrupts are enabled
 		- This is needed for branch instructions - assembly equivalents of `if` statements
 ![image.png](https://images.wu.engineer/images/2023/11/22/202311221600714.png)
+- All of these values change as a process runs
+- When a process is blocked or put into a READY state, a new process will be picked to take control of the CPU
+	- All the information for the current process must be saved
+	- The information for the new process must be loaded into the registers, stack pointer and status registers
+		- This is to allow the new process to run like as though it was never interrupted
+- This process is known as "context switching"
+---
+**进程上下文**包括：
+- **CPU寄存器值**：这些是当前任务的中间计算结果、程序计数器、指令寄存器等。
+- **栈指针**：指向进程栈顶部的指针，进程栈存储了执行路径、局部变量等。
+- **CPU状态字寄存器**：包含标志位，指示上一个操作是否产生了溢出、是否结果为零、以及中断是否被允许等状态信息。
+
+当进程运行时，所有这些值都会随着进程的执行而改变。如果一个进程被阻塞或者被置于就绪（READY）状态，操作系统会选择另一个进程来接管CPU。此时，必须完成以下步骤：
+
+1. **保存当前进程的上下文**：操作系统会保存当前进程的所有寄存器值、栈指针和CPU状态字寄存器等信息。这样做是为了保证当前进程在未来某个时刻能够恢复执行，就如同它从未被中断过一样
+2. **加载新进程的上下文**：然后，操作系统会将下一个要执行的进程的上下文信息加载到CPU的寄存器、栈指针和状态寄存器中。这允许新进程从它上次停止的地方继续执行
+
+这个从一个进程的上下文切换到另一个进程的上下文的过程称为“上下文切换”。上下文切换是操作系统用来分享处理器时间，实现并发执行多个进程的机制。尽管上下文切换是非常快速的，但它涉及到一些开销，因为保存和加载进程状态需要时间，因此操作系统设计时会试图最小化不必要的上下文切换以提高效率。
+
+---
+
+## 12.5 Context Switching on the FreeRTOS Atmega Port
+- Each process is allocated a stack
+	- Stack = Process
+- The diagram shows the complete Atmega context
+	- Registers R0-R31, PC
+	- Status register SREG
+	- Stack pointer SPH/SPL
+![image.png](https://images.wu.engineer/images/2023/11/22/202311230252076.png)
+
+### 1. Task A interrupts
+- Assume that at first Task A is executing
+	- PC would be pointing at Task A code, SPH/SPL (stack pointer) pointing at Task A stack, Registers R0-R31 contain Task A data
+ ![image.png](https://images.wu.engineer/images/2023/11/22/202311230253990.png)
+
+#### Push Program Counter (PC) into the Task A stack
+- FreeRTOS relies on regular interrupts from Timer 0 every ms to switch between tasks. When the interrupt triggers, PC is placed onto Task A's stack.
+![image.png](https://images.wu.engineer/images/2023/11/22/202311230254365.png)
+
+#### Push Program Context into the stack
+- The ISR calls `portSAVECONTEXT`, resulting in Task A's context being pushed onto the stack
+- `pxCurrentTCB` will also hold SPH/SPL after the context save
+	- This must be saved by the kernel
+![image.png](https://images.wu.engineer/images/2023/11/22/202311230259770.png)
+
+### 2. Run Task B
+#### Point Stack Pointer (SP) to Task B's Stack
+- The kernel then selects Task B to run, and copies its SPH/SPL values into `pxCurrentTCB` and calls `portRESTORE_CONTEXT` to restore the process context of Task B
+	- The first two lines will copy `pxCurrentTCB` into SPH/SPL, causing Stack Pointer to point to Task B's stack
+![image.png](https://images.wu.engineer/images/2023/11/22/202311230300013.png)
+
+
+#### Pop Process Context From Stack
+- The reset of `portRESTORE_CONTEXT` is executed, causing Task B's data to be loaded into registers R0-R31 and SREG
+	- Now Task B can resume like as though nothing happended
+![image.png](https://images.wu.engineer/images/2023/11/22/202311230303760.png)
+
+- The reverse operation is `portRESTORE_CONTEXT`. The stack pointer for the process being restored must be in `pxCurrentTCB`
+- Only Task B's PC remains on the stack. Now the ISR exists, causing this value to be popped off onto the AVR's PC
+	- PC points to the next instruction to be executed
+	- End result: Task B resumes execution, with all its data and SREG correct
+
+## 12.5 Process Creation
+- A process can be created in Python by using a `fork()` call:
+![image.png](https://images.wu.engineer/images/2023/11/22/202311230306896.png)
+- The creating process is called a "parent" process, while the created process is called "child" process
+
+- When you run a program in your OS shell, the shell uses the OS to create a new process, then run the program in the new process
+- In Python this is done by using `subprocess.call()`
+![image.png](https://images.wu.engineer/images/2023/11/22/202311230308403.png)
+- The launched is thus a child process of the shell
+- Ultimately, all UNIX process are children of "init", the main starting process in UNIX
+
+## 12.6 Process Control Blocks
+- When a process is created, the OS also creates a data structure to maintain information about that process:
+	- Called a "Process Control Block" (PCB) and contains:
+		- Process ID (PID)
+		- Stack Pointer
+		- Open Files
+		- Pending Signals
+		- CPU usage
+	- PCB is stored in a table called a "Process Table"
+		- One Process Table for entire system
+		- One PCB per process
+
+- When a process terminates:
+	- Most resources like open files, etc., can be released and returned to the system
+	- However the PCB is retained in memory:
+		- Allows child processes to return results to the parent
+	- Parent retrieves the results using a "wait" function call, afterwhich the PCB is released
+- What if the parent never calls "wait"?
+	- PCB remains in memory
+	- Child becomes a "zombie" process. Eventually process table will run out of space and no new process can be created
