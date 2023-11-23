@@ -3663,3 +3663,188 @@ When a device needs attention from the CPU, it triggers what is called an "inter
 - What if the parent never calls "wait"?
 	- PCB remains in memory
 	- Child becomes a "zombie" process. Eventually process table will run out of space and no new process can be created
+
+# 13 - Process Scheduling
+## 13.1 Scheduling Environment
+- Processes can be:
+	- CPU bound
+		- Most of the time spent on processing on CPU
+		- Graphics-intensive applications are considered to be "CPU bound"
+		- Multi-tasking opportunities come from having to wait for processing result
+	- I/O bound
+		- Most of the time spent on communicating with I/O devices
+		- Multitasking opportunities come from having to wait for data from I/O devices
+## 13.2 Process States
+- Processes switch between a fixed set of states depending on events that take place
+	- Scheduler is invoked at various points as shown below
+![image.png](https://images.wu.engineer/images/2023/11/23/202311231557898.png)
+
+### 13.3 Generic Scheduler Program
+```pseudo code
+schedule() {
+	while (queue not empty) {
+		task = pick task from ready queue; //policy dependent
+		delete task from queue
+		switch to task
+	}
+}
+```
+
+> How to determine policies to pick the next task?
+
+## 13.4 Type of Multitaskers
+- Policies are determined by the kind of multitasking environment
+	- **Batch Processing**
+		- Not actually multitasking since only one process runs at a time to completion
+	- **Co-operative Multitasking**
+		- Currently running processes cannot be suspended by the scheduler
+		- Processes must volunteer to give up CPU time
+	- **Pre-emptive Multitasking**
+		- Currently running processes can be force suspended by the scheduler
+	- **Real-Time Multitasking**
+		- Processes have fixed *deadlines* that must be met
+			- If don't meet the deadline:
+				- *Hard Real Time Systems*: System fails
+				- *Soft Real Time Systems*: Mostly just an inconvenience. Performance of system degraded.
+> **批处理** (Batch Processing)：任务逐一执行，直至完成。在一个任务完成之前不会启动另一个任务
+> **协作多任务处理**（Co-operative Multitasking）：在这种环境中，当前正在运行的进程不会被操作系统的调度器强制挂起。进程必须自愿放弃CPU时间，使得其他进程有机会运行。
+> **抢占式多任务处理**（Pre-emptive Multitasking）：在这种模式下，操作系统的调度器可以强制挂起当前运行的进程，以便其他进程可以使用CPU。这样可以确保所有进程都能获得执行的机会。
+> **实时多任务处理**（Real-Time Multitasking）：这种模式要求进程必须在固定的截止时间前完成。如果进程未能在截止时间前完成：
+> 	- **硬实时系统**（Hard Real-Time Systems）：系统死机
+> 	- **软实时系统**（Soft Real-Time Systems）：通常只是造成不便，系统性能会降低
+
+
+### Scheduling Policies for Multitaskers
+- Scheduling policies enforce a priority ordering over processes
+	- As mentioned before, determined by multitasking type
+- Example policies
+	- Simplest policy (Great for *all type* of multitaskers)
+		- **Fixed Priority**
+	- Policies for *Batch Processing*
+		- **First-come First-served** (FCFS)
+		- **Shortest Job First** (SJF)
+	- Policies for Co-operative Multitaskers
+		- **Round Robin with Voluntary Scheduling** (VC)
+	- Policies for Pre-emptive Multitaskers
+		- **Round Robin with Timer** (RR)
+		- **Shortest Remaining Time** (SRT)
+	- Policies for Real-Time Multitaskers
+		- **Rate Monotonic Scheduling** (RMS)
+		- **Earliest Deadline First Scheduling** (EDF)
+
+> **固定优先级**（Fixed Priority): 根据设置的优先级顺序来运行任务。
+> **先来先服务**（First-come First-served，FCFS）：按照任务到达的顺序来运行任务。
+> **最短作业优先**（Shortest Job First，SJF）：优先执行预计运行时间最短的任务
+> **循环轮询与自愿调度**（Round Robin with Voluntary Scheduling，VC）：任务轮流获得CPU时间，但每个任务在使用CPU时必须自愿放弃CPU时间，从而允许下一个任务运行
+> **带时间切片的循环轮询** (Round Robin with Timer, RR): 为每个进程分配时间切片，在时间切片结束时调度器将其挂起，并将CPU分配给下一个进程
+> **最短剩余时间** (Shortest Remaining Time, SRT): CPU被分配给(预估)剩余时间最短的进程，这是对SJF的改进
+
+### Fixed Priority Policy
+- This is a simple policy that can be used across any type of multitasker
+	- Each task is assigned a priority by the programmer
+		- Usually priority number 0 has the highest priority
+	- Tasks are queued according to priority number
+	- Bath, Co-operative
+		- Task with highest priority is picked to be run next
+	- Pre-emptive, Real-Time
+		- When a higher priority task becomes ready, current task is immediately suspended and higher priority task is run
+
+### Batch Scheduling Policies
+Here we have two policies, FCFS and SJF
+#### First Come First Serve, FCFS
+- Arriving jobs are stored in a queue
+- Jobs are removed in turn and run
+- Particularly suited for bath systems
+- Extension for interactive systems:
+	- Jobs removed for running are put back into the back of the queue
+	- This is also known as RR scheduling
+- Starvation free as long as earlier jobs are bounded
+#### Shortest Job First, SJF
+- Processes are ordered by total CPU time used
+- Jobs that run for less time will run first
+- Reduces average waiting time if number of processes is fixed
+- Potential for starvation
+> **Starvation**: 饥饿（starvation）指的是一个或多个可运行进程由于某种原因长时间得不到所需的资源，而无法进一步执行的情况。这种现象通常发生在并发控制或进程调度的环境中。
+### Co-operative Scheduling Policies
+Round Robin for Voluntary Scheduling:
+- Processes call a special "yield" function
+	- This invokes the scheduler
+	- Cause the process to be suspended and another process start up
+![image.png](https://images.wu.engineer/images/2023/11/23/202311231628943.png)
+
+- In many systems, Voluntary Scheduling is used with a round-robin arrangement
+![image.png](https://images.wu.engineer/images/2023/11/23/202311231628313.png)
+
+### Pre-emptive Scheduling Policies
+#### Shortest Remaining Time, SRT
+- Pre-emptive form of SJF
+- Processes are ordered according to remaining CPU time left
+#### Round-Robin with Timer, RR
+- Each process is given a fixed time slice $c_i$
+- After time $c_i$, scheduler is invoked and next task is selected on a RR basis
+
+## 13.5 Managing Multiple Policies
+- Multiple policies can be implemented on the same machine using multiple queues:
+	- Each queue can have its own policy
+	- This scheme is used in Linux
+![image.png](https://images.wu.engineer/images/2023/11/23/202311231636629.png)
+
+## 13.6 Scheduling in Linux
+- Processes in Linux are dynamic:
+	- New processes can be created with `fork()`
+	- Existing processes can exit
+- Priorities are also dynamic:
+	- Users and superusers can change priorities using "nice" values
+	- `nice -n 19 tar cvzf archive.tgz`
+		- Allows tar to run with a priority lowered by 19 to reduce CPU load
+		- Normal users can only set $0\le n\le 19$
+		- Superusers can specify $-20\le n\le 19$. Negative nice increases priority
+
+- Linux maintains three types of processes:
+	- Real-time FIFO:
+		- RT-FIFO processes cannot be pre-empted except by a higher priority RT-FIFO process.
+	- Real-time Round-Robin:
+		- Like RT-FIFO but processes are pre-empted after a time slice.
+	- Linux only has “soft real-time” scheduling.
+		- Cannot guarantee deadlines, unlike RMS and EDF we saw earlier.
+		- Priority levels 0 to 99
+	- Non-real time processes
+		- Priority levels 100 to 139
+
+- Linux maintains 280 queues in two sets of 140
+	- An active set
+	- An expired set
+![image.png](https://images.wu.engineer/images/2023/11/23/202311231646276.png)
+
+- The scheduler is called at a rate of 1000Hz
+	- Time tick is 1ms
+	- RT-FIFO processes are always run if any are available
+	- Otherwise:
+		- Scheduler picks highest priority process in active set to run.
+		- When its “time quantum” is expired, it is moved to the expired set. Next highest priority process is picked.
+		- When active set is empty, active and expired pointers are swapped. Active set becomes expired set and vice versa.
+		- Scheme ensures no starvation of lowest priority processes.
+
+- What happened if a process becomes blocked? (For example, on I/O)
+	- CPU time used so far is recorded. Process is moved to a queue of blocked processes
+	- When process becomes runnable again, it continues running until its time quantum is expired
+	- It is then moved to the expired set
+- When a process becomes blocked its priority is often upgraded
+- Time quantum for RR processes:
+	- Varies by priority. For example:
+		- Priority level 100 -> 800ms
+		- Priority level 139 -> 5ms
+		- System load
+- How process priorities are calculated:
+	- Priority = base + f(nice) + g(cpu usage estimate)
+		- `f()` = priority adjustment from nice value
+		- `g()` = Decay function. Processes that have already consumed a lot of CPU time are downgraded
+	- Other heuristics are used:
+		- Aging (age of process)
+		- More priority for processes waiting for I/O - I/O boost
+		- Bias towards foreground tasks
+- I/O boost:
+	- Rationale:
+		- Tasks doing `read()` has been waiting for a long time. May need quick response when ready
+		- Blocked/waiting processes have not run much
+		- Applies also to interactive processes - blocked on keyboard/mouse input
