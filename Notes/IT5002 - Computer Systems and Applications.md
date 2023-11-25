@@ -3848,3 +3848,274 @@ Round Robin for Voluntary Scheduling:
 		- Tasks doing `read()` has been waiting for a long time. May need quick response when ready
 		- Blocked/waiting processes have not run much
 		- Applies also to interactive processes - blocked on keyboard/mouse input
+# 14 - Inter-Process Communication
+## 14.1 Introduction
+- In previous chapters, we looked at how multiple processes can run on a single CPU
+- In real word applications, there are dependencies between processes
+	- Process B cannot proceed because it is waiting for Process A's result
+- In both process A and B are allowed to run freely, errors will occur
+	- Process B proceeds before A completes, resulting in B using stale results
+- Some form of co-ordination is therefore required
+## 14.2 Race Conditions & Critical Sections
+### 14.2.1 Race Conditions
+- Race condition occur when two or more processes attempt to **access shared resources**:
+	- Global variables
+	- Memory locations
+	- Hardware registers
+	- CPU time
+- Under this condition, the **un-predictable of execution order** for processes will cause the un-predictable of results and errors.
+两个或更多的进程或线程在访问共享资源时，它们的执行顺序导致不可预知的或错误的结果的情况。它通常发生在并发环境中，尤其是当多个操作必须以正确的顺序执行时，否则可能导致数据冲突。
+举例来说，假设有两个线程，它们都试图同时更新同一个变量。如果它们的操作没有适当地同步，一个线程的更新可能会覆盖另一个线程的更新，结果是变量中的数据不是任何一个线程预期的值。
+### 14.2.2 Critical Sections
+- To prevent race conditions, we must prevent two processes from **reading/writing shared resources at the same time**
+	- This is known as a "mutual exclusion" or "mutex" 互斥锁
+- In concept, a running process is always in one of the two possible states:
+	1. It is performing local computation. This does not involve global storage, hence  race condition is not possible
+	2. It is reading/updating global variable. This **can lead to race condition**
+- When running process is in the **second state**, it is within its "**critical section**"
+我们将一段可以访问共享资源的代码范围定义为**临界区 Critical Section**。在这个范围内的代码会访问共享资源，如果多个进程的代码同时访问共享资源，则会出现race condition，这是我们需要避免的。
+所以我们先定义出一个代码区域或范围，其是会访问共享资源以出现潜在的race condition，以便进行下一步操作。
+#### Mutual Exclusion
+相互排斥（Mutual Exclusion）是指在并发编程中确保当一个线程进入临界区时，其他线程或进程必须等待，直到该临界区的线程退出，才能访问共享资源的一种原则或机制。
+- To prevent race conditions, 4 rules must be followed:
+	1. No two processes can in their critical section **at the same time**
+	2. No assumptions may be made about speeds or numbers of CPUs
+		- **Note**: we can relax this assumption for *most* embedded system since they have single CPU
+		- May apply to systems using multi-core microcontrollers
+	3. No process outside of its critical section can block other processes
+	4. No process should **wait forever** to enter its critical section
+![image.png](https://images.wu.engineer/images/2023/11/25/202311251957310.png)
+
+## 14.3 Implementing Mutual Exclusion
+- There are several ways of implementing mutexes, each with their own pros and cons:
+    1. **禁用中断（Disabling interrupts）**：
+        - 原理：在单处理器系统中，通过禁用中断，当前运行的代码可以防止上下文切换，从而避免进入临界区的竞争条件。
+        - 优点：简单易实现；在临界区内的代码不会被打断。
+        - 缺点：只适用于单处理器系统；增加了系统调用和中断响应的延迟；如果临界区内代码执行时间过长，可能影响系统响应性能。
+    2. **锁变量（Lock variables）**：
+        - 原理：使用一个共享变量作为锁，任何线程在进入临界区之前必须检查并设置这个变量的状态。
+        - 优点：实现简单。
+        - 缺点：可能引起忙等（busy waiting），浪费CPU资源；不满足原子操作，仍可能发生竞争条件。
+    3. **严格轮换（Strict alternation）**：
+        - 原理：严格按顺序轮换，每个线程轮流进入临界区。
+        - 优点：简单，且保证了公平性。
+        - 缺点：不是很灵活，因为即使一个线程不需要进入临界区，它也必须等待其轮次来临才能让其他线程进入。
+    4. **Peterson's solution**：
+        - 原理：是一种软件解决方案，结合了锁变量和严格轮换的概念，使得两个线程可以安全地交替进入临界区。
+        - 优点：不需要特殊的硬件支持；实现了真正的相互排斥。
+        - 缺点：仍然使用忙等；只适用于两个线程。
+    5. **测试并设置锁（Test-and-set lock）**：
+        - 原理：使用一个原子操作的测试并设置（test-and-set）指令来实现锁。
+        - 优点：是原子操作，因此在多处理器系统中也可以安全使用。
+        - 缺点：可以导致忙等，尤其在锁争用较高的时候。
+    6. **睡眠/唤醒（Sleep/Wakeup）**：
+        - 原理：使用操作系统提供的睡眠和唤醒调用来控制线程的执行，线程在不能进入临界区时会睡眠，在可以进入时被唤醒。
+        - 优点：避免了忙等，CPU可以切换到其他任务。
+        - 缺点：睡眠和唤醒操作的实现可能会导致额外的复杂性，如需要防止信号丢失或错误唤醒的情况。
+### 14.3.1 Disabling Interrupts
+- Time-slicing depends on a time interrupt. If interrupt is disable, the scheduler will never be activated to switch another process
+- Similarly, process that are blocked pending an event, depend on an interrupt to tell the scheduler that the event has taken place
+- Therefore, disabling interrupts will prevent switch to other process and enter to their critical section
+- Cons:
+	- Carelessly disabling interrupts can cause the entire system to grind to a halt
+	- Only works on single-processor single core.
+### 14.3.2 Lock Variables
+- A single global variable "lock" is initially 1
+- Process A reads this variable and set it to 0, and enter its critical section
+- Process B reads this variable and see it's a 0. B does not enter its critical section and waits until "lock" is 1
+- Process A finishes and set "lock" back to 1, allowing B to enter
+
+Cons:
+- The reading and updating of the global variable is not **atomic process**, still may cause race condition
+	- **Atomic process原子操作**是指在执行过程中不会被其他任务或事件中断的操作原子操作的特点包括：
+		1. **不可中断**：原子操作一旦开始，就会连续执行到完成，不会被其他线程或中断打断。
+		2. **完整性**：它们要么完全执行，要么完全不执行，不会留下中间状态。
+		3. **独占性**：在对共享资源（如内存位置）执行原子操作时，任何其他线程都不能访问该资源。
+- **Busy waiting** occured, waste CPU resources
+	- **Busy waiting忙等**，又称为**自旋等待（Spinlock）**，是一种同步机制，其中一个进程或线程在等待某个条件变为真（如等待锁释放）时不断地检查这个条件，而不进行休眠或让出CPU给其他进程。这种等待方式中，进程或线程占用处理器时间进行无效的循环检查，而不是进行有用的工作。
+### 14.3.3 Test and Set Lock (TSL)
+Use command `TSL reg, lock;`, where `lock` is a variable in memory
+- CPU locks the address and data buses, and reads "locks" from the memory
+	- The locked address and data buses will block access from all other CPUs
+- The current value is written into register "reg"
+- A "1" value is written into  `lock`
+- CPU unlocks the address and data buses
+
+- It is "atomic", means that nothing can interrupt execution of this instruction, which is guaranteed in hardware.
+![image.png](https://images.wu.engineer/images/2023/11/25/202311252021389.png)
+### 14.3.4 Sleep/Wakeup
+- The solution of the 'busy wait' is through the use of "sleep/wake" function
+	- When a process finds that a lock has been set, it calls `sleep()` function and put itself into the blocked state
+	- When the other process exits the critical section and clears the lock, it calls `wake()` function which moves *all* the blocked process into the READY queue
+- This approach can create a problem called "producer-consumer problem"
+## 14.4 The Producer/Consumer Problem
+生产者-消费者问题（Producer-Consumer Problem）是一个经典的并发问题，涉及两类进程、线程或实体：生产者（Producers）和消费者（Consumers）。生产者负责生成数据、工作项、任务等，而消费者则负责处理生产者生成的这些项。这两类实体必须同步操作，以便生产者不会在消费者处理完当前数据之前覆盖数据，同时消费者在没有数据可处理时不会进行无效操作。
+![image.png](https://images.wu.engineer/images/2023/11/25/202311252041277.png)
+- Producer and consumer share a fixed-size buffer
+	- A global variable `count` keeps track of the number of items
+		- If `count == N (full)`, producer sleeps, if `count == 0 (empty)`, consumer sleeps
+	- After reading from the buffer, check the buffer size:
+		- if consumer check `count == N-1 (not full)`, wake up producer
+		- if producer check `count == 1 (not empty)`, wake up consumer
+- Potential deadlock:
+	- Consumer costs the last item in the buffer, `count` now is 0
+	- Consumer wakeup producer since count == N-1, consumer start consuming items but **NOT SLEEP**
+	- Producer wakes and add one item to buffer, increase `count` to 1, then wake up the consumer. However, the consumer now is still consuming the item and **NOT SLEEP**, the `wake()` is lost.
+	- Consumer finished consuming and start-over the while loop, check the count is 0, consumer **SLEEP**
+	- Producer get up and produce items until the buffer is full, producer **SLEEP**
+	- No one is awake, deadlock
+## 14.5 Semaphores
+- A semaphore is a special lock variable that counts the number of wake-ups saved for future use
+	- A value of '0' indicates that no wake-ups have been saved
+- Two atomic operations on semaphore
+	- DOWN, TAKE, PEND or P:
+		- If the semaphore has a value > 0, it is decremented and the DOWN operation returns
+		- If the semaphore is 0, the DOWN operation blocks
+	- UP, POST, GIVE or V
+		- If there are any processes blocking on a DOWN, one is selected and waken up
+		- Otherwise UP increments the semaphore and returns
+	- **等待（P）**：线程在尝试进入临界区之前调用这个操作。如果信号量的值大于零，信号量的值减一，线程进入临界区。如果信号量的值已经是零，这意味着没有可用的资源，线程将被阻塞，直到信号量的值变为正。
+	- **发信号（V）**：线程在离开临界区时调用这个操作。信号量的值增加一，如果有线程正在等待这个信号量，则其中一个将被唤醒。
+![image.png](https://images.wu.engineer/images/2023/11/25/202311252105840.png)
+### Mutual Exclusion with Semaphore
+- When a semaphore's counting ability is not needed, we can use a simplified version called "mutex"
+	- 1 = Unlocked
+	- 0 = Locked
+- Two processes can then attempt do DOWN the semaphore
+	- Only one will succeed. The other will block
+	- When the successful process exits the critical section, it does an UP to wake up others
+![image.png](https://images.wu.engineer/images/2023/11/25/202311252108783.png)
+## 14.6 Deadlocks with Semaphores
+- Our producer/consumer solution swapped the semaphores for empty/full with the mutex semaphore, the potential deadlock occurs
+![image.png](https://images.wu.engineer/images/2023/11/25/202311252113323.png)
+
+- When producer successfully DOWN the mutex, it go to he next code for check the empty semaphore
+- The empty semaphore has value 10, which is full, producer blocked
+- Consumer check mutex, which is DOWNed by producer, consumer blocked
+- Deadlock
+### Deadlock: Reusable/Consumable Resources
+- Reusable Resources:
+	- Memory, devices, files, tables...
+	- Number of units is **constant**
+	- Unit is either free or allocated; **no sharing**
+	- Process **requests, acquires, releases units**
+- Consumable Resources
+	- Messages, signals,...
+	- Number of units **varies** at runtime
+	- Process releases (create) units (without acquire)
+	- Other process **requests** and **acquires** (consumes)
+**可重用资源（Reusable Resources）：**
+- **定义**：可重用资源是指在系统中数量固定，可以被多个进程共享使用的资源。这类资源使用完毕后不会消失，可以被释放并重新分配给其他进程。
+- **特点**：
+    - **数量固定**：如内存、设备、文件和数据库表等，它们的总数在运行时不会改变。
+    - **非共享**：在任一时刻，每个单元要么是空闲的，要么被某个进程独占。
+    - **请求-获取-释放**：进程使用这些资源时通常遵循请求资源、获取资源、最终释放资源的周期。
+
+**可消耗资源（Consumable Resources）：**
+- **定义**：可消耗资源是指它们的数量会随着系统的运行而变化，通常是由进程创建，并被其他进程消耗。
+- **特点**：
+    - **数量变化**：如消息或信号等，它们可以在运行时被创建和消耗，因此它们的总数是可变的。
+    - **创建和消费**：一个进程可以释放（或说是创建）资源，无需先获取资源。而另一个进程可能会请求和获取（消费）这些资源。
+
+**死锁的关联：**
+- **可重用资源死锁**：如果多个进程各自持有一部分资源，并请求更多的资源时，可能导致循环等待的情况，这是死锁的经典场景。
+- **可消耗资源死锁**：尽管可消耗资源不像可重用资源那样直观地与死锁关联，但如果进程间的信号通信不当，也可能导致死锁。例如，一个进程等待从另一个进程接收信号，而后者也在等待某种资源或信号，这可能形成死锁。
+### Dealing with Deadlocks
+1. Detection and Recovery
+	- Allow deadlock to happen and eliminate it
+2. Avoidance (dynamic)
+	- Runtime checks disallow allocations that might lead to deadlocks
+3. Prevention (static)
+	- Restrict type of request and acquisition to make deadlock impossible
+**处理死锁的策略：**
+1. **检测和恢复**：
+    - 允许死锁发生，但需要有机制来检测它，并一旦检测到就采取措施恢复系统，比如中断并重启涉及的进程。
+2. **避免（动态）**：
+    - 在运行时进行检查，以阻止可能导致死锁的资源分配。这涉及到对资源分配请求进行评估，以确保它们不会引起系统的不安全状态。
+3. **预防（静态）**：
+    - 通过限制请求和分配资源的方式，从根本上排除死锁的可能性。
+#### Deadlock Prevention
+- Deadlock requires the following 3 conditions:
+	1. **Mutual exclusion**: resources not sharable
+	2. **Hold and wait**: process must be holding at least one resource while request another
+	3. **Circular wait**: at least 2 processes must be blocked on each other
+**死锁通常需要以下三个条件同时满足：**
+1. **互斥**：资源不能共享，必须由一个进程独占。
+2. **保持并等待**：进程至少持有一个资源，并且正在等待获取额外的资源。
+3. **循环等待**：存在一个进程链，每个进程都在等待下一个进程持有的资源。
+##### Eliminate mutual exclusion
+- Not possible in most cases. 在大多数情况下，这是不可能的，因为某些资源（如打印机）本质上就是不可共享的。
+- Spooling makes I/O device sharable. 通过技术如假脱机（Spooling）可以使某些I/O设备变得可共享。
+##### Eliminate hold-and-wait
+- Request *all resources* at once. 要求进程一次性请求其需要的所有资源
+- Release *all resources* before a new request. 要求进程一次性请求其需要的所有资源
+- Release *all resources* if current request blocks. 如果当前请求无法立即满足，则释放所有已持有的资源
+##### Eliminate circular wait
+- Order all resources. 对系统中的所有资源进行排序
+- Process must request in ascending order. 要求每个进程必须按照资源编号的升序来请求资源
+### Problem with Semaphores: Priority Inversion
+优先级反转（Priority Inversion）是操作系统中的一个经典问题，发生在一个高优先级任务被迫等待一个低优先级任务释放资源的情况。这通常是因为有一个中等优先级的任务阻止了低优先级任务的执行，而高优先级任务又在等待低优先级任务持有的资源。
+- In the diagram below, priority (Process C) < priority (Process B) < priority (Process A)
+![image.png](https://images.wu.engineer/images/2023/11/25/202311252142665.png)
+- Process B effectively blocks out Process A, although Process A has higher priority
+1. 低优先级任务C开始执行，并获得了一个信号量（或其他同步资源）。
+2. 在任务C完成操作并释放信号量之前，一个中等优先级任务B开始执行，并且由于调度策略，它抢占了任务C的CPU时间。
+3. 高优先级任务A开始执行，并需要之前被任务A获得的那个信号量。然而，由于任务C还没有释放信号量，任务A不能继续，即便它有更高的优先级。
+4. 由于任务B持续占用CPU（因为它优先级高于任务A），任务C无法运行，因此也就无法释放信号量。这样，高优先级的任务A被迫等待低优先级的任务C，而任务C又因为任务B而无法运行。
+**Out of context**:
+优先级反转的问题在于，它违反了优先级调度的基本原则：高优先级任务应该被优先执行。在优先级反转的情况下，一个低优先级任务可能会无意中阻塞一个高优先级任务的执行，这可以导致性能下降，甚至在严重的实时系统中可能导致系统失败。
+为了解决优先级反转问题，可以采用几种策略：
+- **优先级继承（Priority Inheritance）**：如果一个低优先级任务持有一个高优先级任务需要的资源，那么低优先级任务临时继承高优先级任务的优先级，直到它释放该资源。
+- **优先级天花板（Priority Ceiling）**：系统中每个信号量都有一个预先定义的“天花板”优先级，任何持有该信号量的任务都将运行在这个优先级，以防止更低优先级任务的干预。
+- **队列管理**：更改调度队列的管理，确保高优先级任务优先得到服务。
+## 14.7 Monitors & Conditional Variables
+### 14.7.1 Monitors
+- A monitor is similar to a class or abstract-data type in C++ or Java:
+	- Collection of procedures, variables and data structures grouped together in a package
+		- Access to variables and data possible only though methods defined in the monitor
+	- However, only one process can be active in a monitor at any point of time
+		- I.e., if any other process tries to call a method within the monitor, it will block until the other process has exited the monitor
+- Implementation:
+	- When a process calls a monitor method, the method first checks to see if any other process is already using it.
+	- If so, the calling process blocks until the other process has exited the monitor
+**监视器Monitor：**
+- 这是一种同步构造，其封装了资源共享的访问，提供了一种安全地允许多个进程访问同一资源的方式。其他任何试图访问监视器的任何方法methods的进程都会被阻塞，直到当前的method执行完成。
+### 14.7.2 Monitors and Condition Variables
+- Monitors achieve mutual exclusion, but we also need other mechanisms for coordination
+	- E.g. in our producer/consumer problem, mutual exclusion is not enough to prevent the producer from proceeding when the buffer is full
+- We introduce "**condition variable**"
+	- One process WAITs on a condition variable and blocks, until...
+	- Another process SIGNALs on the same condition variable, unblocking the WAITing process
+**条件变量**：监视器使用条件变量来挂起和唤醒线程。这些条件变量是监视器对象的一部分，允许线程在某些条件不满足时等待（wait），并在条件可能已变为真时被唤醒（signal）。
+- Implementing the Producer/Consumer Problem with semaphores and condition variables:
+	- When the buffer is full (`count == N`), producer will WAIT on a full condition
+	- When the buffer is empty (`count == 0`), consumer will WAIT on empty.
+![image.png](https://images.wu.engineer/images/2023/11/25/202311252155999.png)
+- When a process encounters a WAIT, it is blocked and another process is allowed to enter the monitor
+- Problem:
+	- When there's a SIGNAL, the sleeping process is woken up
+	- We will potentially now have two processes in the monitor at the same time:
+		- The process doing the SIGNAL
+		- The process that woke up because of the SIGNAL
+- We have 3 ways to resolve this:
+	1. We require that the signaler exits immediately after calling SIGNAL
+	2. We suspend the signaler immediately and resume the signaled process
+	3. We suspend the signaled process until the signaler exits, and resume the signaled process only after that
+- A condition variable is different from a semaphore.
+	- Semaphore:
+		- If Process A UPs a semaphore with no pending DOWN, the UP is **saved**.
+		- The next DOWN operation will not block because it will match immediately with a preceding UP.
+	- Condition variable:
+		- If Process A SIGNALs a condition variable with no pending WAIT, the SIGNAL is simply **lost**.
+		- This is similar to the SLEEP/WAKE problem earlier on.
+## 14.8 Barriers
+- A "barrier" is a special form of synchronisation mechanism that works with groups of processes rather than single processes
+**屏障(Barrier)** 是一种特殊形式的同步机制，用于协调一组进程或线程，而不是单个进程或线程。它通常用于并行编程和多线程应用中，确保在某个执行点上所有的进程或线程都达到了屏障点，然后才能一起继续执行。换句话说，它是一种集体等待点，直到所有成员都准备好了，才能跨过这个点。
+**如何工作：**
+当一个进程或线程到达屏障点时，它会在那里等待，直到所有其他进程或线程也都到达这一点。一旦最后一个进程到达屏障点，所有在屏障点等待的进程或线程就可以继续执行。
+**使用场景：**
+屏障在以下情况下特别有用：
+- **并行计算**：在数据处理或计算密集型任务中，可能需要将任务分割成多个部分并行处理。屏障可以确保各个部分在继续下一步之前都完成了当前步骤。
+- **同步启动**：确保所有线程或进程都已准备好，然后同时开始执行。
+- **迭代算法**：在每个迭代步骤结束时同步，比如在使用迭代方法求解数值问题时。
+![image.png](https://images.wu.engineer/images/2023/11/25/202311252200954.png)
