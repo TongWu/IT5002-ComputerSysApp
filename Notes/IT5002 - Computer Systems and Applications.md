@@ -4355,3 +4355,180 @@ x86: Little Endian, TPC/IP: Big
 	- This frees up addresses 0 to 127
 	- Coalesces (Combine) with is buddy block, 128-255, to form a single 256 byte block at address 0
 ![image.png](https://images.wu.engineer/images/2023/11/26/202311261720254.png)
+# 17 - File Systems
+## 17.1 Introduction
+### What is a File System?
+- Present logical (abstract) view of files and dictionaries
+	- Accessing a disk is very complicated:
+		- 2D or 3D structure, track/surface/sector, seek, rotation
+	- **Hide complexity** of hardware devices
+- Facilitate efficient use of storage device
+	- Optimise access, e.g., to disk
+- Support sharing
+	- File persist even when owner/creator is not currently active (unlike the main memory)
+	- Key issue: Provide protection (control access)
+### Hierarchical View of File System
+![image.png](https://images.wu.engineer/images/2023/11/26/202311262344013.png)
+## 17.2 Files and Dictionaries
+### User's View of File
+- **File name and type**
+	- **Valid** name
+		- Number of characters
+	- Extension
+		- Tied to type of file
+		- Used by applications
+	- File **type** recorded in header
+		- Cannot be changed (even when extension changes)
+		- Basic types: **text, object, load file, dictionary**
+		- Application-specific types: .doc, .ps, .html
+- **Logical file organisation**
+	- Most common: **Byte Stream**
+		- 在文件系统中，**字节流（Byte Stream）** 指的是文件数据的一种表示方式，它将文件内容表示为一个连续的、顺序的字节序列。使用字节流的概念，文件系统不需要关心文件数据的具体含义或结构，而是把文件当作一个由单个字节组成的长串数据。
+		  字节流模型提供了一种简单抽象，使得读写文件操作可以不受文件数据类型的影响，因为所有文件都是以相同的方式处理——即一系列的字节。这种抽象同时适用于文本文件、二进制文件或任何其他类型的文件。
+	- Fixed-size or variable-size **records**
+	  文件可以按记录（record）组织，每个记录存储一组相关数据。记录可以是固定大小的，也可以是可变大小的：
+		- **固定大小记录**：每个记录占用相同数量的字节，这简化了记录的查找和访问，因为每个记录的起始位置可以轻易计算出来。
+		- **可变大小记录**：记录根据存储的数据量有不同的大小。这种方式更灵活，但访问特定记录可能需要额外的信息或遍历整个文件。
+	- Addressed
+		- Implicitly (sequential access to next record)
+		- Explicitly by position (record number) or key
+		- **隐式地址化（Sequential Access）**：文件可以按照顺序访问，每次访问下一个记录。这种方式简单，适用于需要顺序处理文件的场景。
+		- **显式地址化**：可以通过以下方式显式访问记录：
+		    - **按位置（Record Number）**：可以直接根据记录的编号访问，这通常适用于固定大小记录。
+		    - **按键（Key）**：特别是在记录有特定键（如数据库中的主键）的情况下，可以通过键来查找和访问记录。
+![image.png](https://images.wu.engineer/images/2023/11/26/202311262353588.png)
+### Operations on Files
+- Create/Delete
+- Open/Close
+- Read/Write (Sequential or Direct)
+- Seek/Rewind (sequential) 寻找/倒退
+- Copy (Physical or Link)
+- Rename
+- Change protection
+- Get properties
+- Each involves parts of Directory Management, BFS, or Device Organisation
+- GUI is built on top of these functions
+### Directory Management
+- Main issues:
+	- **Shape** of data (e.g., tree, shortcuts)
+	- **What** info to keep about files?
+	- **Where** to keep it?
+	- **How** to organise entries for efficiency?
+- 1. **数据的结构（Shape）**：
+    - 文件系统的数据结构可以采取多种形式，如树形结构、图形结构等。这影响了文件和目录的组织方式，以及用户如何导航和管理文件。
+2. **关于文件的信息（What）**：
+    - 决定存储哪些元数据来描述文件，例如文件大小、创建和修改日期、权限、所有者信息等。
+3. **信息存储位置（Where）**：
+    - 确定这些信息存储在文件系统的哪个部分。通常，这些信息存储在文件的元数据区域，可以是文件头部、专门的目录节点（inode）或其他数据结构。
+4. **如何组织条目以提高效率（How）**：
+    - 如何在目录中组织文件和目录条目，以便可以快速地插入、删除和搜索文件。
+#### File Directories
+- **Tree-structured**
+	- Simple search, insert, delete operations
+	- Sharing is asymmetric (only one parent)
+**树形结构（Tree-structured）：**
+- 树形结构是一种常见的文件系统结构，它模拟了现实世界的文件夹和文件组织方式。
+- 文件系统的每一项（可以是文件或目录）都位于一个树状的层次结构中，每个项有一个父目录（除了根目录），并且可以有多个子项。
+树形结构的特点包括：
+- **简单的搜索、插入和删除操作**：
+    - 树结构可以通过路径名来定位任何项，这使得搜索（查找文件）、插入（添加新文件）和删除（移除文件）操作相对简单。
+- **非对称共享**：
+    - 在纯粹的树形结构中，每个文件或目录只有一个父节点。这意味着共享（如创建快捷方式或链接）是非对称的，文件通常只能在一个地方拥有“真实”位置。
+![image.png](https://images.wu.engineer/images/2023/11/26/202311270015981.png)
+### File Directories
+- How to uniquely name a file in the hierarchy?
+- **Path names**
+	- Concatenated local names with delimiter
+	  `.` or `/`  or `\`
+	- **Absolute** path name: start with root
+	  `/`
+	- **Relative** path name: start with current directory
+	  `.`
+	- Notation to move upward in hierarchy (parent folder)
+	  `..`
+### Implementation of Directories
+- What information to keep in each entry
+	- **All** descriptive information
+		- Directory can become very large
+		- Searches are difficult/slow
+	- Only symbolic **name (filename) and pointer**  to descriptor (file's properties)
+		- Needs an extra disk access to descriptor
+![image.png](https://images.wu.engineer/images/2023/11/26/202311270023651.png)
+- How to organise entries within directory
+	- Fixed-size entries
+	  *use array of slots*
+	- Variable-size entries
+	  *use linked list*
+	- Size of directory:
+	  *fixed or expanding*
+- 目录可以有固定的大小，也可以设计为可扩展的：
+    - **固定大小**的目录简化了管理，但可能限制了目录能包含的最大文件数。
+    - **可扩展大小**的目录更加灵活，可以随着文件的添加而增长，但可能需要更复杂的管理策略以处理目录大小的变化。
+![image.png](https://images.wu.engineer/images/2023/11/26/202311270027009.png)
+### File Operations (re-visited)
+- Assume that:
+	- descriptors are in a dedicated area
+	- directory entries have name and pointer only
+- `create`
+	- find free descriptor, enter attributes
+	- find free slot in directory, enter name/pointer
+- `rename`
+	- search directory, change the name
+- `delete`
+	- search directory, free entry, descriptor, and data blocks
+- `copy`
+	- similar as create, then find and copy contents of file
+- change protection
+	- search directory, change entry
+## 17.3 Basic File System
+- Open/Close files
+	- Retrieve and set up information for **efficient** access:
+		- get file descriptor
+		- manage open file table
+**打开/关闭文件：**
+1. **打开文件**：
+    - 打开文件的过程包括检索文件的相关信息，并为文件访问设置必要的数据结构。这些信息通常存储在文件描述符或索引节点（i-node）中。
+    - 为了有效地访问文件，操作系统会在打开文件时获取文件描述符，并可能在内存中管理一个打开文件表，以跟踪哪些文件当前是打开状态。
+2. **关闭文件**：
+    - 关闭文件意味着完成对文件的访问，并更新系统中的相关数据结构，如关闭文件表中的项，并可能更新文件的最后访问时间。
+    - 关闭文件操作确保所有的数据都正确写入存储，并释放相关的系统资源。
+
+- File descriptor (i-node in UNIX)
+	- Owner id
+	- File type
+	- Protection information
+	- Mapping to physical disk blocks
+	- Time of creation, last use, last modification
+	- Reference counter
+
+- Open File Table (OFT) keeps track of currently open files
+- open command:
+	1. Search directory for given file
+	2. Verify access right
+	3. Allocate OFT entry
+	4. Allocate read/write buffers
+	5. Fill in OFT entry
+		- Initialisation (e.g., current position)
+		- Information from descriptor (e.g., file length, disk location)
+		- Pointers to allocated buffers
+	6. Return OFT index
+- close command:
+	1. Flush modified buffers to disk
+	2. Release buffers
+	3. Update file descriptor
+	4. Free OFT entry
+
+  
+打开文件表（Open File Table）是操作系统用来管理所有当前打开文件的数据结构。每当一个进程打开一个文件时，操作系统会在这个全局表中创建一个条目，以跟踪文件的重要信息和状态。打开文件表是操作系统用来实现文件访问控制和文件共享的机制之一。
+打开文件表通常包含以下信息：
+- **文件描述符（File Descriptor）** 或 **文件句柄（File Handle）**：这是一个唯一标识符，关联到打开文件表中特定的条目。
+- **文件位置指针**：它记录了文件内的当前位置，用于读写操作的下一次开始位置。
+- **文件打开模式**：例如，只读、只写或读写模式。
+- **文件的访问权限**：这些权限决定了哪些操作是允许的。
+- **文件锁定状态**：指示文件或其部分是否被锁定，以及锁定的类型。
+- **引用计数**：记录有多少进程正在使用这个文件。每当有新的进程打开同一文件时，引用计数会增加；当进程关闭文件时，计数减少。
+- **指向文件控制块或i-node的指针**：这包含了文件所有的元数据，如文件大小、所有者、权限以及文件数据在磁盘上的位置等。
+
+当程序执行打开文件操作时，操作系统首先检查文件的权限，然后在打开文件表中创建或更新一个条目，并将文件描述符返回给程序。程序随后使用这个文件描述符来进行读写等操作。
+当文件关闭时，操作系统会更新打开文件表，并减少引用计数。当引用计数降至零时，操作系统会清理该条目，释放资源。
+
