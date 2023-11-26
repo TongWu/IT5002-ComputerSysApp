@@ -4195,9 +4195,163 @@ x86: Little Endian, TPC/IP: Big
 	- 当MMU转换逻辑地址时，它会使用页表或其他数据结构来找到对应的物理地址。
 	- 物理地址直接指向内存中的一个实际位置。
 ### Multiple Program Systems
+多程序系统是一种操作系统环境，它允许多个程序同时驻留在内存中，以便CPU可以在它们之间切换来实现多任务处理。这种系统的设计旨在提高资源利用率和系统吞吐量，因为当一个程序等待某些事件（如I/O操作）完成时，CPU可以切换到另一个程序继续工作，从而减少CPU空闲时间。
+在多程序系统中，操作系统负责内存管理，确保每个程序有独立的地址空间，防止程序之间相互干扰。这通常通过使用逻辑地址和物理地址的转换来实现，即程序编写时使用逻辑地址，运行时操作系统和硬件负责将逻辑地址映射到物理内存地址。
 - Having multiple processes complicates memory management:
 	- **Conflicting addresses**: >1 program expects to load at the same place in memory
 	- **Access violations**: program overwrites the code/data of another program/OS
 	- The ideal situation would be to give each program a section of memory to work with
 		- Basically each program will have its own address space
+#### Base and Limit Registers
+- Base Register:
+	- This contains the **starting address** for the program
+	- All program address are computed relative to this register
+	- 存储分配给程序的物理内存块的起始物理地址。当程序中的逻辑地址生成时，系统会将逻辑地址加上基址寄存器的值来得到物理地址。
+- Limit Register:
+	- This contains the **length of the memory segment**
+	- 存储程序分配的内存块的大小。它用来检查生成的物理地址是否在分配的内存块内。
+- These registers solve both problems:
+	- We can resolve **address conflicts** by setting different values in the base register
+	- If a program tries to **access memory below** the base register value or **above** the (base + limit) register value, a "**segmentation fault**" occurs
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261543159.png)
+- All memory references in the program are relative to the Base Register
+	- For example, `JMP 28` will cause a jump to memory location `16384+28=16412`
+- Any memory access to location `16384+8192=24576` and above (or `16383` and below) will cause **segmentation faults**
+	- Other programs will occupy spaces above and below the segment given
+#### Partitioning
+- Base and limit registers allow us to partition memory for each running process
+	- Each process has its own **fixed partition**
+	- Assumed that we know how much memory each process needs
+##### Partitioning Issues: Fragmentation
+- Two types of fragmentation can arise
+	- **Internal fragmentation**:
+		- Partition is much larger than is needed
+		- Cannot be used by other processes
+		- Extra space is wasted
+	- **External fragmentation**:
+		- Free memory is broken into *small chunks* by allocated memory
+		- Sufficient free memory in TOTAL, but individual chunks insufficient to fulfils requests
+- 即外部碎片化和内部碎片化
+	- 内部碎片化指程序被分配到过大的内存空间，剩余的内存无法被其他程序使用，造成浪费
+	- 外部碎片化指剩余内存被分为很多个小片，剩余内存的总空间足够分配给其他程序，但是单个内存切片不能满足程序需求
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261639102.png)
 
+### Manage Memory within Processes
+- We have seen how we can manage multiple processes within an OS, but:
+	- What about memory within individual programs?
+		- OS allocates memory for instructions
+		- Global variables are created as part of the program's environment, and don't need to be specially managed
+		- A "stack" is used to create local variables and store local addresses
+			- LIFO, allocate space when a function is called, release space when function returned
+		- A "heap" is used to create dynamic variables
+			- Dynamically arranged
+- E.g. In UNIX, process space is divided into:
+	- **Text segments**: Read-Only, contains code. May have > 1 text segments
+	- **Initialised Data**: Global data initialised from executable file. `char *msg[] = "Hello World!"`
+	- **BSS Segment**: Contains uninitialised globals
+	- **Stack**: Contains statically allocated local variables and arguments to functions, as well as return addresses
+	- **Heap**: Contains dynamically allocated memory
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261649024.png)
+
+### Managing Free Memory
+- When memory can be allocated and de-allocated (e.g. using `malloc`/`free` or `new`/`delete`), it has to be managed by the OS
+	- E.g., when a program requests for 168 Bytes of memory, where should it comes from?
+	- When a program free 215 Bytes of memory, what should happen?
+	- Should small fragments of free memory scattered all over be compacted?
+
+- To manage free memory, we must know where these free chunks of memory are.
+- Two approaches:
+	- Bit maps
+	- Free/Allocated List
+- In either approach, memory is divided up into fixed sized chunks called "**allocation units**"
+	- Common sizes range from several bytes (e.g. 16 bytes) to several kilo-bytes
+	- Each "tick mark" in figure (a) represents the boundary of an allocation unit
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261652402.png)
+#### Bit Maps
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261701428.png)
+- Figure (b) shows how **bit maps** are used to keep track of free memory。
+	- Each bit corresponds to an allocation unit
+		- 0 indicates a free unit, 1 indicates an allocated unit
+	- If a program request for 128 bytes:
+		- Find how many allocation units are needed. if each unit if 16 bytes, this corresponds to 8 units
+		- Scan through the list to find 8 **consecutive** 0's
+		- Allocate the memory found, and change 0's to 1's
+	- If a program frees 64 bytes:
+		- Mark the bits corresponding to the 4 allocation units as 0
+**位图（Bit Map）：**
+位图是一种数据结构，用于跟踪内存块的使用情况。在这个结构中，内存被分成固定大小的块，每个块由位图中的一个位（bit）表示。如果一个位设置为0，它表示相应的内存块是空闲的；如果设置为1，则表示内存块被占用。
+- **优点**：
+    - 位图在表示大量内存块时非常高效，因为每个内存块只需要一个位来表示其状态。
+    - 位操作通常非常快速，尤其是在现代计算机系统上。
+- **缺点**：
+    - 位图的缺点是它不够灵活，每个块的大小是固定的，这可能导致内存碎片问题，特别是如果块大小和实际请求不匹配时。
+    - 对于非常大的内存区域，位图自身可能也会占用相当多的内存空间。
+#### Free/Allocated List
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261700146.png)
+
+- Figure (c) shows an alternative method:
+	- A **single linked list** is used to track **allocated ("P")** units and **free ("H")** units
+		- Each node on the linked list also maintains where the block of free units start, and how many consecutive free units are present in that block
+	- Allocating free memory becomes simple:
+		- Scan the list until we reach a **"H"** node that points to a block of a sufficient number of free units
+- Can also implemented as a **doubly linked list**
+	- Diagram below shows the possible "neighbour combinations" that can occur when a process X terminates
+	- The "back pointer" in doubly linked list makes it easy to combine freed blocks together
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261705455.png)
+**已分配链表（Allocated List）：**
+已分配链表是另一种内存管理技术，它使用链表数据结构来跟踪空闲内存块。链表中的每个节点代表一个空闲内存块，包含块的起始地址和大小。
+- **优点**：
+    - 已分配链表允许更加灵活的内存分配，因为它可以精确地跟踪每个空闲块的大小，所以可以根据需要分配不同大小的内存块。
+    - 它可以通过合并相邻的空闲块来减少内存碎片。
+- **缺点**：
+    - 搜索合适的空闲块可能比较慢，尤其是当空闲列表很长时，可能需要遍历整个列表来找到足够大的空闲块。
+    - 空闲列表可能需要额外的存储空间来维护链表结构。
+#### Allocation Policies
+- The bitmap and allocated list tell us where the free space is, but not allocate
+- There are several possibilities on how to do allocation:
+	- Note that in each case, the free allocation units which are left at the end of an allocated block will returned to the free list
+		- E.g. if a block of 8 units is found and only 6 are needed, the remaining 2 units are marked as "free"
+	- **First Fit**
+		- Scan through the list/bit map and find the **first block** of free units that can **fit the requested size**
+		- Fast, easy to implement
+	- **Best Fit**
+		- Scan through the list/bit map to find the **smallest block** of free units that can **fit the requested size**
+		- Minimise waste
+		- It can lead to scattered bits of tiny useless holes
+	- **Worst Fit**:
+		- Find the largest block of free memory
+		- Can reduce the number of tiny useless holes
+- We can sort the free memory from the smallest to largest for **best fit**, or largest to smallest for **worst fit**
+	- This minimise the search time
+	- However combining free neighbours will becomes much harder
+##### First Fit
+- First allocation: 3 units
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261712551.png)
+- Second allocation: 3 units
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261713651.png)
+#### Buddy Allocation (Quick Fit)
+- This is an efficient (better than $O(n)$) way to manage free blocks
+	- Binary splitting
+		- Half of the block is allocated
+		- The two halve are called "buddy blocks"
+		- Can combine again when two buddy blocks are free
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261714383.png)
+**Example**:
+- We initially have a free block of 512 bytes
+- We want to do `malloc(100)`, allocate 100 bytes
+- Steps:
+	1. **Split** 512 byte block into 2 sub-blocks of **256 bytes**
+	2. **Split** one 256 bytes block into 2 sub-blocks of **128 bytes**
+	3. Allocate memory location **0-127**
+- These allocations have created blocks at addresses:
+	- **0 to 127**: the block given to the malloc, since we return the first free block of at least 100 bytes.
+	- **128-255**: The free buddy block of the block at address 0.
+	- **256-511**: The free buddy block of the block that was broken up to 0-127 and 128-255.
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261719084.png)
+
+- Now if we want to allocate 256 bytes
+	- Block 256 is returned
+- Now we call `free(0)`, free memory 0-127
+	- This frees up addresses 0 to 127
+	- Coalesces (Combine) with is buddy block, 128-255, to form a single 256 byte block at address 0
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261720254.png)
