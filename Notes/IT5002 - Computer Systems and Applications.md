@@ -4119,3 +4119,85 @@ Use command `TSL reg, lock;`, where `lock` is a variable in memory
 - **同步启动**：确保所有线程或进程都已准备好，然后同时开始执行。
 - **迭代算法**：在每个迭代步骤结束时同步，比如在使用迭代方法求解数值问题时。
 ![image.png](https://images.wu.engineer/images/2023/11/25/202311252200954.png)
+# 15 - Memory Management
+## 15.1 Introduction
+- Memory is crucial for computers:
+	- Used to store:
+		- Kernel code and data
+		- User code and data
+- What responsibilities does the OS have here?
+	- Allocate memory to new processes
+	- Manage process memory
+	- Manage kernel memory for its own use
+	- Provide OS service to:
+		- Get more memory, e.g. via `malloc`
+		- Free memory, e.g. via `free`
+		- Protect memory
+## 15.2 Physical Memory Organisation
+- Physical memory is:
+	- The actual matrix of capacitors (DRAM) or flip-flops (SRAM) that stores data and instructions
+	- Arranged as an array of bytes
+- **Memory addresses serve as byte indices**
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261357190.png)
+### Words
+- Physical memory is organised in bytes, but CPU often transfer data in units of >1 byte
+	- This unit is called **word**
+	- For 8-bit machine, 1 word = 1 byte,
+	  For 16-bit machine, 1 word = 2 bytes,
+	  For 32-bit machine, 1 word = 4 bytes
+	  For 64-bit machine, 1 word = 8 bytes
+### Endianness (Big Endian & Little Endian)
+How to store multiple byte word (> 1 byte), 2 general schemes, e.g. `0x87654321`
+- **Big Endian:** higher order bytes at lower address
+  在大端字节序中，最高有效字节（MSB）存储在最低的内存地址上，而最低有效字节（LSB）存储在最高的内存地址上。这类似于我们阅读数字的方式，从左到右读，高位在前。
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261402370.png)
+- **Little Endian:** lower order bytes at lower 
+在小端字节序中，最低有效字节（LSB）存储在最低的内存地址上，而最高有效字节（MSB）存储在最高的内存地址上。这类似于我们阅读数字的方式倒过来，低位在前。
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261403008.png)
+x86: Little Endian, TPC/IP: Big 
+### Alignment
+- Data can be fetched across word boundaries
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261405016.png)
+- E.g. fetching from address 1 in a 32-bit machine
+	- Bytes from address 0 to 3 are fetched
+	- Bytes from address 4 to 7 are fetched
+	- Bytes from address 0, 5, 7 are discarded
+	- Bytes from 1, 2, 3, 4 are merged
+- 这种没有对齐的数据依然可以被正常读取，但是相比于对齐的数据，在这个例子中未对齐的数据传输了多一倍的数据
+
+- Since mis-aligned reads are very inefficient, data structures should always be created in units of words
+	- E.g., add unused bytes to ensure this
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261410514.png)
+
+- Due to CPU fetch circuitry design, instruction usually must be fetched on word boundaries
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261411731.png)
+- Instructions fetched across word boundaries trigger "**Bus Error**" faults
+## 15.3 Memory Management
+- Why Memory Management?
+	- We want to use memory **efficiently**
+		- What memory has already been allocated to whom?
+		- What memory is now free and usable for others?
+	- We want to **protect** process from each other
+		- One process should not to able to trash another process or the OS
+		- E.g., we don't want Process 1 to be messing about with the variables and memories used by Process 2
+### Logical & Physical Addresses
+- **Logical addresses**:
+	- These are addresses as "seen" by executing processes code
+	- 也被称为虚拟地址（Virtual Address），是由执行程序产生的地址。
+	- 对于程序中的任何内存请求，都会生成逻辑地址。
+	- 逻辑地址是**相对地址**，它是从**程序开始的地方**计算的。
+	- 它由程序的代码通过内存管理单元（Memory Management Unit，MMU）在运行时转换为物理地址。
+	- 逻辑地址使得程序员无需关心内存中的实际物理位置，可以使用一致的地址空间来编写程序。
+- **Physical addresses**:
+	- These are addresses that are *actually* sent to memory to retrieve data or instructions
+	- 物理地址是数据实际存储在物理内存中的地址。
+	- 它是由计算机的硬件和操作系统管理的。
+	- 当MMU转换逻辑地址时，它会使用页表或其他数据结构来找到对应的物理地址。
+	- 物理地址直接指向内存中的一个实际位置。
+### Multiple Program Systems
+- Having multiple processes complicates memory management:
+	- **Conflicting addresses**: >1 program expects to load at the same place in memory
+	- **Access violations**: program overwrites the code/data of another program/OS
+	- The ideal situation would be to give each program a section of memory to work with
+		- Basically each program will have its own address space
+
