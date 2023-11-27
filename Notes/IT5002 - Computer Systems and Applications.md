@@ -3432,7 +3432,7 @@ System calls are calls made to the "Application Program Interface" (API) of the 
 ## 11.7 User Mode + Kernel Mode
 - Want to protection between kernel and executing program
 - Program (actually process) runs in user mode
-- During system call - running kernel code in kernel mde
+- During system call - running kernel code in kernel mode
 - After system call, back to user mode
 
 How to switch mode?
@@ -3582,7 +3582,7 @@ When a device needs attention from the CPU, it triggers what is called an "inter
 - **栈指针**：指向进程栈顶部的指针，进程栈存储了执行路径、局部变量等。
 - **CPU状态字寄存器**：包含标志位，指示上一个操作是否产生了溢出、是否结果为零、以及中断是否被允许等状态信息。
 
-当进程运行时，所有这些值都会随着进程的执行而改变。如果一个进程被阻塞或者被置于就绪（READY）状态，操作系统会选择另一个进程来接管CPU。此时，必须完成以下步骤：
+当进程运行时，所有这些值都会随着进程的执行而改变。如果一个进程被阻塞或者被置于就绪（Ready）状态，操作系统会选择另一个进程来接管cpu。此时，必须完成以下步骤：
 
 1. **保存当前进程的上下文**：操作系统会保存当前进程的所有寄存器值、栈指针和CPU状态字寄存器等信息。这样做是为了保证当前进程在未来某个时刻能够恢复执行，就如同它从未被中断过一样
 2. **加载新进程的上下文**：然后，操作系统会将下一个要执行的进程的上下文信息加载到CPU的寄存器、栈指针和状态寄存器中。这允许新进程从它上次停止的地方继续执行
@@ -3663,7 +3663,25 @@ When a device needs attention from the CPU, it triggers what is called an "inter
 - What if the parent never calls "wait"?
 	- PCB remains in memory
 	- Child becomes a "zombie" process. Eventually process table will run out of space and no new process can be created
-
+当一个进程被创建时，操作系统会为其创建一个称为“进程控制块”（Process Control Block，简称PCB）的数据结构，用以维护该进程的相关信息。以下是PCB包含的关键信息：
+1. **进程标识符（Process ID，PID）**：
+    - 每个进程有一个唯一的标识符，用于区分系统中的不同进程。
+2. **栈指针（Stack Pointer）**：
+    - 指向进程的栈顶，栈用于存储函数参数、返回地址以及局部变量。
+3. **打开文件（Open Files）**：
+    - 进程打开的文件列表，通常包括文件描述符和相关的文件状态信息。
+4. **挂起信号（Pending Signals）**：
+    - 待处理的信号集，信号是进程间通信的一种方式。
+5. **CPU使用情况（CPU usage）**：
+    - 该进程使用CPU的统计信息，如累计CPU时间。
+PCB存储在一个称为“进程表”（Process Table）的结构中，系统中的每个进程都有一个对应的PCB。
+当进程终止时：
+- 操作系统通常会释放大多数资源，如关闭打开的文件等，并将这些资源返回给系统。
+- 然而，PCB会保留在内存中，这允许子进程将结果返回给父进程。
+- 父进程通过调用“wait”函数来检索子进程的结果。在这之后，子进程的PCB被释放。
+如果父进程从未调用“wait”：
+- 子进程的PCB会保留在内存中，这样的子进程被称为“僵尸进程”（Zombie Process）。
+- 如果僵尸进程过多，进程表可能会耗尽空间，导致无法创建新的进程。
 # 13 - Process Scheduling
 ## 13.1 Scheduling Environment
 - Processes can be:
