@@ -4531,4 +4531,455 @@ x86: Little Endian, TPC/IP: Big
 
 当程序执行打开文件操作时，操作系统首先检查文件的权限，然后在打开文件表中创建或更新一个条目，并将文件描述符返回给程序。程序随后使用这个文件描述符来进行读写等操作。
 当文件关闭时，操作系统会更新打开文件表，并减少引用计数。当引用计数降至零时，操作系统会清理该条目，释放资源。
+### Organising Data on a Disk
+![image.png](https://images.wu.engineer/images/2023/11/27/202311271638740.png)
+- **Boot**: usually start of disk which contains code to **start loading** the OS (booting the OS). For PC, boot block also called **MBR** (Master Boot Record) and contains also the partition table
+- Partitions: divide up disk into regions for filesystems, each filesystem in one partition. For PCs, only 4 **primary partitions** are allowed which can be booted
+	- PC can also have **logical partitions** beyond primary partitions
+### Organising Files
+- 在计算机存储中，扇区（Sector）和逻辑块（Logical Block）是数据存储和访问的两个基本单位，它们之间有着密切的关系：
+	- **扇区 Sector:**
+		- 扇区是硬盘驱动器（HDD）或固态驱动器（SSD）上的基本物理存储单位。
+		- 在传统的硬盘上，一个扇区通常存储512字节数据；现代硬盘通常使用4096字节（4KB）作为一个扇区的大小。
+		- 扇区是磁盘读写操作的最小物理单位。
+	- **逻辑块（Logical Block）或文件系统块（Filesystem Block）：**
+		- 逻辑块是文件系统管理数据的逻辑单位。
+		- Logical blocks need not to be same as physical sector size - may be some multiple of sectors
+		- 文件系统将一组扇区逻辑地组合成一个块，块的大小通常是扇区大小的整数倍。
+		- 在文件系统中，块是分配空间和管理文件的基本单位。
+### Data Structure on Disk
+- Need data structure to record which block belongs to which part of file
+	- E.g., data at positions 2020-4100 are in which blocks and which part of the block?
+- How does data in file change?
+	- Write some data at end of file
+	- UNIX: write data into holes, but basically means can write anywhere
+	- Decreases with truncation operation
+- Data structure must also be stored on disk (persistent)
+- Typical data structures: versions of list/ trees/ arrays
+## 17.4 Physical Organisation Methods
+### Contiguous Organisation
+连续组织（Contiguous Organization）是文件系统中文件存储的一种方法。在这种组织中，文件的所有数据块在磁盘上物理位置上是连续的。这意味着文件的起始块和结束块之间的所有块都是连续存放的，没有空隙。
+**连续组织的特点包括：**
+- **简单的访问**：因为文件的数据块是连续的，所以读取文件时可以一次性读取整个文件，这使得文件的访问速度非常快，特别是对于读取大文件时。
+- **高效的磁盘利用**：连续的数据块减少了寻道时间，因为磁头不需要在不同的磁道之间移动来读取同一个文件的不同部分。
+**连续组织的缺点：**
+- **碎片问题**：随着文件的创建和删除，磁盘上会出现碎片。新文件可能找不到足够大的连续空间，即使磁盘上总的空闲空间是足够的。
+- **文件扩展问题**：如果一个文件需要扩展，但其后面的磁盘空间已被占用，该文件就需要移动到一个有足够连续空间的新位置。
+- **预分配问题**：在创建文件时，必须预先知道文件的最大大小，这样才能分配连续的空间，这在许多情况下是不现实的。
+![image.png](https://images.wu.engineer/images/2023/11/27/202311271709062.png)
+### Linked Organisation
+链式组织（Linked Organization）是文件系统中文件存储的一种方法，其中文件的各个部分分散存储在磁盘上的不同区域，每部分通常被称为一个数据块或簇。在链式组织中，每个数据块都包含了指向文件下一个数据块的指针，形成了一个链条。这意味着，文件系统只需知道文件的起始块，就可以通过跟踪指针从一个数据块移动到下一个数据块，从而访问整个文件。
+***链式组织的特点：***
+- **非连续存储**：文件的数据块可以散布在磁盘的任何地方，不需要物理上连续。
+- **动态扩展**：文件容易扩展，只需要在链的末尾添加新的数据块并更新前一个数据块中的指针。
+- **无需预分配空间**：不需要在文件创建时就预知文件的最终大小，文件可以随着数据的添加而增长。
+**链式组织的缺点**：
+- **访问速度较慢**：由于数据块可能分散在磁盘的各个部分，因此读取文件时可能需要多次寻道操作，这可能会导致访问速度较慢。
+- **指针占用空间**：每个数据块都需要额外的空间来存储指向下一个数据块的指针。
+- **可靠性问题**：如果链中的某个指针损坏，可能会导致整个文件的剩余部分无法访问。
+![image.png](https://images.wu.engineer/images/2023/11/27/202311271710996.png)
+### Linked List Allocation - FAT
+- MSDOS uses File Allocation Table (FAT)
+- Linked allocation but stored completely in FAT (after reading from disk)
+- FAT kept in **RAM** (stored in disk but duplicated in RAM) - gives fast access to the pointers
+- FAT table contains either: 
+	- **block number** of next block
+	- **EOF** code (corresponds to NULL pointer)
+	- **FREE** code (block is unused)
+	- **BAD** block (block is unusable, i.e. disk error)
+	- Combines bitmap for free blocks with linked allocation for list of blocks
+- FAT table is 1 entry for every block. Space management becomes an array method
 
+**FAT的基本概念：**
+- FAT是链式分配的一种形式，但与传统的链式分配不同，它不是将指针存储在数据块中，而是将整个链表存储在一个称为FAT的特殊表中。
+- 在这个系统中，文件的每个数据块在FAT表中都有一个对应的条目。这个条目包含了文件的下一个数据块的编号或特殊代码。
+
+**FAT表存储在内存中：**
+- 虽然FAT表在磁盘上有物理副本，但为了快速访问，整个FAT表在系统启动时会被读取到RAM（随机访问存储器）中。
+- 将FAT存储在RAM中可以显著提高访问文件数据块的速度。
+
+**FAT表的内容：**
+- **块编号（Block Number）**：如果文件占用了多个数据块，FAT表中的每个条目会指向文件的下一个数据块。
+- **文件结束（EOF）代码**：表示文件结束的特殊代码，相当于链表中的NULL指针，标志着文件的最后一个数据块。
+- **空闲（FREE）代码**：表明一个数据块当前未被使用。
+- **坏块（BAD）标记**：表示数据块不可用，可能是因为磁盘错误。
+
+**FAT的混合机制：**
+- FAT结合了位图（用于跟踪空闲数据块）和链式分配（用于管理文件的数据块列表）的特点。
+- 它通过数组方式管理空间，每个数据块在FAT中都有一个对应的条目。
+
+**空间管理变成数组方法：**
+- 由于FAT表中为每个数据块都分配了一个条目，因此管理磁盘空间就像操作数组一样简单。可以通过索引FAT表来快速找到文件的连续块或检查空闲块。
+#### MSDOS File System Layout
+![image.png](https://images.wu.engineer/images/2023/11/27/202311271714765.png)
+#### DOS Directory
+- Special file (type directory) containing directory entries (32 byte structures, little endian)
+- FAT directory entry: filename + extension (8 + 3 bytes), file **attributes** [read only, hidden, system, directory flag, archive, volume label, time+date created, last access date, time+date last write, first block (cluster) number]
+- root directory is special (already known, FAT16 has limited root dir size, 512 entries), other directories distinguished by type
+
+**目录作为特殊文件：**
+- 在DOS中，目录被视为一种特殊类型的文件（类型为目录），它包含了一系列的目录项。
+- 每个目录项是一个32字节的结构，使用小端字节序（Little Endian）格式存储信息。
+
+**FAT目录项结构：**
+- **文件名和扩展名**：目录项的前11字节用于存储文件名（8字节）和扩展名（3字节）。
+- **文件属性**：其中一部分字节用于存储文件属性，这些属性可能包括：
+    - 只读（Read-Only）
+    - 隐藏（Hidden）
+    - 系统文件（System）
+    - 目录标志（Directory Flag），用来标识该条目是一个文件还是一个目录
+    - 存档（Archive），通常用于备份和文件变更跟踪
+    - 卷标（Volume Label），标识磁盘卷的名称
+- **时间和日期**：文件创建、上次访问以及上次修改的时间和日期信息。
+- **第一个块（Cluster）号**：文件数据开始的地方，即第一个数据块或簇的编号。
+
+**根目录的特殊性：**
+- 根目录在FAT文件系统中有特殊的地位，因为它的位置是已知的（即在磁盘的固定位置）。
+- 在FAT16文件系统中，根目录的大小是固定的，限制为512个条目。这意味着根目录可以直接存储512个文件或目录的信息，而不需要任何扩展。
+- 其他目录则不受此限制，它们的大小可以动态变化，并且它们的条目可以通过目录类型的属性来区分。
+#### FAT Organisation
+![image.png](https://images.wu.engineer/images/2023/11/27/202311271720860.png)
+- Linked list implemented as array of FAT entries:
+	- 4 types: 
+		- Block number (part of a linked list)
+		- EOF byte (end of linked list)
+		- FREE byte
+		- BAD byte
+	- Some numbers are block numbers, some are reserved block numbers for EOF, FREE, BAD
+- Blocks for file linked together in FAT entries, e.g., file A: 3->5->8
+- Free blocks indicated by FREE entry
+- Bad blocks (unusable blocks due to disk error) marked in FAT entry: BAD cluster value
+
+**FAT作为数组实现的链表：**
+- **FAT数组**：FAT表可以看作是一个大数组，每个数据块在数组中有一个对应的条目。文件系统通过这个数组来追踪文件存储的物理位置。
+
+**四种类型的FAT条目：**
+1. **块编号**：
+    - 如果一个条目是块编号，那么它指向文件的下一个数据块。这些编号形成了一个链表，指示文件在磁盘上的存储顺序。
+2. **EOF（文件结束）字节**：
+    - 特殊的EOF标记表示文件数据块链表的结束。当FAT中的一个条目被标记为EOF时，它表示当前块是文件的最后一个数据块。
+3. **FREE（空闲）字节**：
+    - 如果一个条目被标记为FREE，那么相应的数据块当前没有被使用，可用于存储新数据。
+4. **BAD（坏块）字节**：
+    - 如果一个条目被标记为BAD，那么相应的数据块由于磁盘错误而不可用。
+
+**文件和块的链接：**
+- 文件的数据块在FAT中通过块编号链接起来。例如，文件A可能由FAT中的第3个块开始，第3个块的FAT条目指向第5个块，第5个块的条目又指向第8个块，形成链表3->5->8。
+
+**空闲块和坏块：**
+- 空闲块通过FAT条目中的FREE值来表示。文件系统在需要分配新块时会查找这些FREE标记的条目。
+- 坏块通过FAT条目中的BAD值来标识。这些块不会被文件系统用来存储数据，因为它们可能会导致数据损坏。
+#### MSDOS: Deleting a File
+- How MSDOS delete file/directory:
+	- Set first letter in filename to `0xE5` (destroys first byte of original filename)
+	- Free data blocks: set FAT entries in linked list to FREE (tag all the data blocks in file free)
+
+**Delete 操作：**
+当在MS-DOS中执行删除操作时（例如使用`del`命令），文件系统通常执行以下步骤：
+1. **标记FAT条目**：在文件分配表（FAT）中，文件的第一个簇（数据块）的条目被标记为“空闲”（FREE）。这意味着文件系统不再认为这些簇属于任何文件，因此它们可以被用来存储新数据。
+2. **更新目录项**：文件的目录项中的文件名首字符通常被替换为一个特殊的删除字符（如0xE5），这样文件就不会在目录列表中显示出来。
+
+**Undelete 操作：**
+由于MS-DOS不会立即清除文件内容，而是只标记FAT中的簇为“空闲”并修改目录项，因此在新数据写入磁盘覆盖这些簇之前，文件通常可以被恢复。恢复文件的基本步骤包括：
+1. **识别删除的文件**：通过扫描目录结构找到被标记为删除的文件项。
+2. **检查FAT**：检查与该文件关联的簇在FAT中是否仍然是连续的，且没有被其他文件覆盖。如果这些簇未被覆盖，文件内容还在磁盘上。
+3. **恢复目录项和FAT**：将目录项中的文件名首字符从删除字符恢复为原始字符，同时在FAT中恢复文件簇链的链接。
+#### FAT16 Cluster Size
+- FAT16: fat entry block number is **16 bits** (16 bit numbers in FAT entries), sector size = 512, how to deal with disks bigger than 64K * 512 (32M)
+- Logical block size  = multiple of sectors. MSDOS calls this the **cluster size**
+- Maximum cluster size = 32K (normally)
+- Maximum file system size of FAT16 = 64K * 32K = 2G
+- Maximum file size: slightly less than 2G
+- large cluster size means large internal fragmentation
+- FAT16 can use 64K cluster size, now limits become 4G
+
+**FAT16 文件系统结构**：
+- 在FAT16文件系统中，每个FAT条目是16位的，这意味着FAT表中每个条目可以指向65,536（即2^16）个不同的簇。
+- 扇区大小通常设置为512字节，这是硬盘存储的基本单位。
+
+**处理大于32MB磁盘的问题：**
+- 由于每个FAT条目是16位的，FAT16理论上可以直接管理的最大磁盘大小是32MB（即64K个簇乘以每个扇区512字节）。要管理更大的磁盘，需要增加每个簇包含的扇区数，即增加簇的大小。
+
+**簇大小：**
+- 簇是文件存储的逻辑块，它由多个扇区组成。MS-DOS将这个逻辑块称为簇。
+- 簇的最大大小通常为32KB，这意味着每个簇可以包含64个扇区（因为每个扇区512字节）。
+
+**文件系统和文件大小限制：**
+- 如果每个簇为32KB，FAT16文件系统的最大容量为2GB（即64K个簇乘以每簇32KB）。
+- 单个文件的最大大小略小于2GB，因为文件大小也受到簇大小和FAT条目数量的限制。
+
+**簇大小与内部碎片：**
+- 如果簇的大小较大，会导致较大的内部碎片，因为即使文件只比一个簇小一字节，也需要分配整个簇来存储它。
+
+**FAT16 的簇大小扩展：**
+- 尽管32KB是FAT16文件系统的常规最大簇大小，但在某些操作系统实现中，簇大小可以增加到64KB。这将文件系统的最大限制扩大到4GB，但会进一步增加内部碎片，并可能会导致与某些系统的兼容性问题。
+#### VFAT
+- VFAT: adds long filenames (255 chars)
+	- Compatible with FAT16 by tricking it
+	- short FAT16 filename for FAT16 and long version, short filename created from long one
+	- For compatibility: long name stored as multiple directory entries using illegal attributes (not used by FAT16)
+	- Trick: have to manage 2 kinds of names, old SW uses short names, alising issue due to 2 names
+
+VFAT（Virtual File Allocation Table）是FAT文件系统（如FAT16）的扩展，它添加了对长文件名的支持。长文件名在Windows 95及以后的版本中得到了广泛使用。VFAT允许文件名最多达到255个字符，而FAT16只支持最多8个字符的文件名和最多3个字符的扩展名，即所谓的“8.3”命名约定。
+**如何实现长文件名支持：**
+- **与FAT16的兼容性**：VFAT通过在目录项中存储额外的信息来支持长文件名，同时保留了一个标准的FAT16短文件名条目。这样做确保了旧软件和操作系统仍然可以访问VFAT格式化的磁盘，即使它们不识别长文件名。
+- **创建短文件名**：为了保持与FAT16的兼容性，VFAT自动为每个长文件名创建一个符合“8.3”命名约定的短文件名。这个短文件名是从长文件名派生的，可能包含一些特殊字符和数字来确保唯一性。
+- **存储长文件名**：长文件名被分割成多个部分，并存储在一系列的目录项中，这些目录项在FAT16中使用非法属性标记，以防止FAT16系统将这些目录项当作常规文件或目录项处理。
+- **多个目录项**：一个长文件名可能需要多个连续的目录项来完整存储。这些目录项中的每一个都包含文件名的一部分，并以特定方式链接起来，以便操作系统可以将它们重组为完整的文件名。
+
+**面临的挑战：**
+- **两种文件名的管理**：VFAT需要管理两种文件名，即短文件名和长文件名。这可能会在文件系统操作中引入复杂性。
+- **别名问题**：因为每个文件有两个名字，可能导致别名问题，即两个不同的长文件名可能映射到相同的短文件名。
+- **旧软件兼容性**：只认识短文件名的旧软件可能会遇到问题，因为它们可能无法正确处理长文件名。
+#### FAT32
+- Increase FAT size to 28 bits, cluster numbers 28-bits
+- Max filesystem size increase: 127G
+- **decrease internal fragmentation** (cluster size can decrease)
+- **FAT table size increases**
+- FAT16 root dir size limit removed - normal dir
+- Maximum file size: $2^{32}-1$
+  
+FAT32是FAT文件系统系列中的一个版本，它扩展了FAT表的大小，增加了文件系统能支持的最大容量，并对一些限制进行了改进。
+**FAT32的特性：**
+1. **FAT表大小**：
+    - FAT32使用28位来索引簇（尽管总位数是32位，但实际只使用28位），这意味着FAT表可以跟踪更多的簇。这允许文件系统支持更大的存储设备。
+2. **文件系统最大大小**：
+    - 随着簇编号的扩展，FAT32文件系统理论上可以支持最大到127GB（甚至更大，取决于簇的大小）的存储设备。
+3. **内部碎片减少**：
+    - 由于可以支持更多的簇，FAT32允许使用更小的簇大小，从而减少了内部碎片——即未使用的存储空间，这通常发生在文件不够大以填满最后一个分配给它的簇。
+4. **FAT表大小增加**：
+    - 更多的簇意味着FAT表本身的大小会增加，因为需要更多的条目来映射磁盘上的簇。
+5. **根目录大小限制**：
+    - FAT32移除了FAT16中根目录大小的限制。在FAT32中，根目录被当作一个普通目录处理，可以动态增长，其大小受可用空间的限制。
+6. **最大文件大小**：
+    - FAT32支持的最大单个文件大小理论上可以达到2^32-1字节（即4GB减去1字节）。这对于大文件的存储提供了更大的灵活性。
+#### Disk Fragmentation
+磁盘碎片（Disk Fragmentation）是文件存储在硬盘上时出现的一种现象，它会影响硬盘访问速度和整体性能。这段内容描述了磁盘碎片的概念和产生的原因。
+- Fast disk access:
+	- Contiguous blocks (from geometry/processing viewpoint)
+	- Blocks in same cylinder
+
+- Suppose currently file system is optionally allocated (fresh install). Is this sustainable?
+	- Delete files/blocks
+	- Insert new files/blocks
+- After some operations - block ordering becomes more random
+
+- Disk Fragmentation: logical contiguous block are "far apart" on disk (this is different from memory fragmentation)
+
+**数据的快速访问：**
+- **连续块的快速访问**：如果一个文件的数据块在磁盘上是连续的，从几何和处理的角度来看，磁盘访问速度会更快。这是因为磁盘读写头不需要在不同的位置之间移动，可以一次性顺序读取所有数据块。
+- **同一柱面上的块**：如果数据块位于硬盘的同一柱面上，那么磁盘的寻道时间会大大减少，从而提高数据访问速度。
+
+**碎片产生的过程：**
+- 在文件系统刚安装完毕时，数据可能会被选项地分配在磁盘上，这意味着文件会被存储在连续的数据块中。这时的文件系统（如新安装的FS）可能表现出优异的性能。
+- 随着时间的推移，用户可能会删除一些文件和数据块，同时也会插入新的文件和数据块。这些操作会导致磁盘上的数据块分布变得更加随机和分散。
+- 经过一系列的删除和写入操作后，文件的数据块可能不再连续，变得“分散”在磁盘上，这就是磁盘碎片。
+
+**磁盘碎片的影响：**
+- 碎片的产生意味着逻辑上连续的数据块在物理磁盘上实际上是“相隔甚远”的。这与内存碎片不同，内存碎片是由于分配和释放内存时产生的未使用空间的小块造成的。
+- 磁盘碎片化导致硬盘读写头需要在磁盘上移动到多个不同的位置来读取一个文件，增加了寻道时间和旋转延迟，从而降低了数据访问速度。
+
+**如何处理磁盘碎片：**
+- FAT:
+	- Affects FAT Filesystem
+	- fragmentation effect less with large cluster size (but **large** internal fragmentation)
+	- MSDOS solution: run defragmentation (like compaction) on entire filesystem - move all used blocks to be contiguous
+		- One big free space chunk after defragmentation.
+		- May take a long time to defrag
+- Unix S5FS:
+	- also has disk fragmentation
+	- may be worse than DOS since smaller logical block size
+### Indexed Organisation
+- **Index table**: sequential list of records
+- Simplest implementation: keep index list in descriptor
+- Insert/Delete is easy
+- Sequential and direct access is efficient
+- **Drawback:** file size limited by number of index entries
+**Variations of indexing**
+- Multi-level index hierarchy
+	- Primary index points to secondary indices
+	- Problem: number of disk access increases with depth of hierarchy
+- Incremental indexing
+	- Fixed number of entries at top-level index
+	- When insufficient, allocate additional index level
+![image.png](https://images.wu.engineer/images/2023/11/27/202311271800685.png)
+  
+索引组织（Index Organization）是文件系统中用于管理文件存储的一种方法。在这种组织中，每个文件都有一个索引结构（如索引节点或inode），索引中包含了文件所有数据块的指针。这种方法允许文件的数据块在磁盘上非连续存放，同时仍然能够有效地访问文件的全部内容。
+
+**索引组织的特点：**
+1. **索引结构**：
+    - 文件的索引结构通常存储在一个固定的位置，例如inode表中。
+    - 索引中的每个条目对应文件的一个数据块或一组数据块。
+    - 索引可以直接指向数据块，或者指向其他索引结构，这取决于文件的大小和文件系统的设计。
+2. **直接和间接指针**：
+    - 直接指针直接指向文件的数据块。
+    - 大型文件可能还会使用间接指针，这些指针指向其他包含指针的块，这些指针再指向实际的数据块。
+3. **支持大文件**：
+    - 通过使用多级索引（如单级间接、双级间接、三级间接指针），索引组织可以支持非常大的文件。
+4. **随机访问**：
+    - 由于文件的每个数据块都可以通过索引快速定位，因此支持高效的随机访问。
+
+**索引组织的优势：**
+- **灵活性**：文件的数据块可以存储在磁盘的任意位置，不需要连续的空间。
+- **效率**：对于小文件，通常只需要访问索引和少数几个数据块；对于大文件，虽然需要通过多个索引层次，但通常仍然比链式组织更高效。
+- **可扩展性**：索引结构允许文件动态增长。
+
+**索引组织的缺点：**
+- **复杂性**：管理索引结构比链式组织或连续组织更复杂。
+- **开销**：索引本身需要占用一定的磁盘空间，尤其是对于非常大的文件系统。
+
+索引组织的变体涉及了不同的技术来管理文件在磁盘上的存储，尤其是大文件和数据库系统。这些变体的目的是在提高存储效率和减少访问延迟之间找到平衡。
+
+**多级索引层次结构（Multi-level Index Hierarchy）：**
+- 在多级索引结构中，一个主索引（Primary Index）不直接指向文件的数据块，而是指向次级索引（Secondary Indices），这些次级索引然后指向实际的数据块或进一步的索引层次。
+- **优点**：这种方法允许文件系统管理非常大的文件，因为通过添加更多的索引层次可以极大地增加文件系统的最大文件大小。
+- **缺点**：随着索引层次的增加，读取文件的某个部分可能需要更多的磁盘访问，因为每一级索引都可能涉及到一个磁盘I/O操作。
+
+**增量索引（Incremental Indexing）：**
+- 在增量索引方法中，顶级索引有固定数量的条目，这些条目直接指向文件的数据块。
+- 当顶级索引的条目不足以包含所有数据块的指针时，文件系统会分配额外的索引层次来存储更多的指针。
+- **优点**：这种方法在文件较小时保持了效率，只有当文件增长到需要额外索引层次时，才增加额外的开销。
+- **缺点**：与多级索引层次结构类似，增量索引也可能导致随着文件的增长，磁盘访问的次数增加。
+## 17.5 Unix File Systems
+- Look at System V File System (s5fs) - simpler than modern FS implementations
+- **inodes**: represents every file
+- directories: contains names of files (recall maps filename to eventual file (hard link) or pathname (symbolic link))
+- file allocation using a multi-level tree index
+**System V文件系统的主要组成：**
+1. **索引节点（inodes）**：
+    - 每个文件和目录在UNIX文件系统中都有一个对应的inode。inode包含了文件的元数据，如所有者、权限、大小、时间戳（创建、访问和修改时间）以及指向文件实际数据的指针。
+    - inode编号是唯一的，它在文件系统中标识一个特定的文件。
+2. **目录（directories）**：
+    - 目录在UNIX文件系统中是特殊类型的文件，它们包含文件名和对应的inode编号。
+    - 目录项将文件名映射到inode，这使得文件系统可以根据名称找到文件的inode，进而访问文件数据。
+    - 目录可以包含硬链接（hard link）和符号链接（symbolic link）。硬链接直接关联到文件的inode，而符号链接则包含了指向另一个文件路径的文本指针。
+3. **文件分配**：
+    - UNIX文件系统使用多级索引树来分配文件数据。每个文件的inode包含直接指针（直接指向数据块的指针），以及一级、二级和三级间接指针（指向包含其他指针的块的指针）。这种结构允许文件系统有效地管理大文件和大量的小文件。
+### s5fs: inodes
+- actual file object
+- every file has one inode (many to one mapping because of hard links)
+- contains all metadata about file **except filename**
+- contains reference count i.e. number of hard links, reference count = 0 means file can be deleted (subjected to no open files condition - all file descriptors to file object are closed)
+- metadata in inode includes Table of Content (TOC) which gives mapping of file data to disk blocks (TOC is per file - contrast with MSDOS which has only **global** TOC (FAT))
+System V文件系统（s5fs）中的索引节点（inodes）是文件系统核心概念之一。它们代表了文件系统中的每个文件，并且承载了文件的大部分元数据。
+
+**inode的特性：**
+1. **文件的实际对象**：
+    - inode代表了文件系统中的实际文件对象。每个文件在文件系统中都有一个唯一的inode。
+2. **一对多映射**：
+    - 由于硬链接的存在，多个文件名（位于不同的目录项中）可以映射到同一个inode。这意味着多个文件名可以引用同一个文件内容和属性。
+3. **包含的元数据**：
+    - inode包含了关于文件的所有元数据，除了文件名。这些元数据包括文件大小、所有者、权限、时间戳（文件创建、最后访问和修改时间）等。
+    - inode还包含指向文件数据所在磁盘块的指针。这些指针构成了文件的“目录表”（Table of Content，TOC）。
+4. **引用计数**：
+    - inode包含一个引用计数，即指向该inode的硬链接数。当引用计数降至零时，意味着没有任何目录项引用这个inode，文件可以被删除。这当然也受限于文件是否被打开——即所有指向该文件对象的文件描述符都已关闭。
+5. **每个文件的TOC**：
+    - 与MS-DOS的FAT（全局文件分配表）不同，s5fs中的每个inode都有自己的TOC，这表示文件数据在磁盘上的位置。这提供了更灵活的文件数据管理方式，允许文件系统更有效地处理大文件和小文件。
+### Unix Table of Contents (TOC)
+![image.png](https://images.wu.engineer/images/2023/11/27/202311271811769.png)
+### s5fs: TOC Index Blocks
+- **Direct block pointers:**
+  used for small files, no extra disk overhead, efficient direct access. VM analogy: TLB
+- **Single indirect block:**
+  files bigger than direct blocks & smaller than double indirect. Disk overhead is 1 block. File access slightly slower than direct. VM analogy: direct mapped page table
+- **Double + Triple indirect blocks:**
+  files bigger than single indirect block. More disk overhead but is small fraction on file size. Random file access requires looking up the indirection blocks - slower than indirect. VM analog: 2-3 level page tables
+- File sizes: direct << single indirect << double indirect << triple indirect
+  
+System V文件系统（s5fs）中的“目录表”（Table of Content, TOC）或者说索引块，是inode结构的一部分，它详细指出了文件的各个部分在磁盘上的位置。TOC使用了直接和间接的指针来定位文件的数据块。
+
+**TOC索引块的类型**：
+1. **直接块指针**：
+    - 用于小文件的存储，因为直接块指针直接指向包含文件数据的磁盘块。
+    - 对于直接块，没有额外的磁盘开销，文件访问效率高。
+    - 虚拟内存（VM）的类比：这类似于转换后备缓冲区（Translation Lookaside Buffer, TLB）中的直接映射。
+2. **单级间接块**：
+    - 用于大于直接块容量但小于双级间接块容量的文件。
+    - 磁盘开销是一个块的大小，因为需要一个额外的块来存储指向实际数据块的指针。
+    - 文件访问速度比直接块慢，因为需要额外的步骤来解引用间接块。
+    - 虚拟内存的类比：相当于直接映射页表。
+3. **双级和三级间接块**：
+    - 用于大于单级间接块容量的文件。
+    - 磁盘开销更大，因为需要多个间接块来存储额外级别的指针。
+    - 随机文件访问需要查找多个间接块，这使得访问速度比单级间接块慢。
+    - 文件的随机访问会更慢，因为需要遍历更多的间接指针。
+    - 虚拟内存的类比：相当于2级或3级页表。
+
+**文件大小与索引块关系**：
+- 文件的大小决定了使用哪种类型的索引块：
+    - **直接块**适用于最小的文件。
+    - **单级间接块**用于中等大小的文件。
+    - **双级间接块**和**三级间接块**用于更大的文件。
+### s5fs: File System Parameters
+- **number of direct blocks** (e.g. s5fs: 10, ext2: 12)
+- **number of indirection levels** (e.g. max is 2 or 3)
+- **logical block size:** determines efficiency of disk I/O, can be composed of several contiguous physical blocks, space wastage from internal fragmentation, determines number of block pointers in index blocks and max indirection levels (e.g. ext2 can select 1,2,4 K when creating filesystem)
+- **block pointer size:** affects indexing, determines max addressable disk block
+- Small files only use the **direct blocks** in TOC , number of direct blocks can vary
+- Larger file requires **first indirect block** (this is like 1-level page table)
+- Even larger file uses **double indirect block** which points to indirect blocks. Even larger may have **triple indirect**
+- Like page tables, can allow blocks which do not exist (**logical zero filled holes** in the file) - set the block pointer to NULL in the TOC, return zeroes for the logical block when read.
+
+**文件系统参数包括：**
+1. **直接块的数量**：
+    - 文件系统为每个文件分配的直接块的数量，直接块用于存储文件的实际数据。s5fs可能使用10个直接块，而ext2使用12个直接块。
+2. **间接层次的数量**：
+    - 文件系统支持的最大间接索引层次，通常是2或3。每增加一个层次，都会增加可支持的文件最大大小。
+3. **逻辑块大小**：
+    - 确定磁盘I/O效率的一个关键参数。逻辑块可以由多个连续的物理块组成。逻辑块的大小还决定了索引块中可以包含的指针数量以及最大间接层次。
+    - 例如，ext2文件系统在创建时可以选择1KB、2KB或4KB作为逻辑块的大小。
+4. **块指针大小**：
+    - 影响索引能力，确定了文件系统可寻址的最大磁盘块。块指针的大小必须足够容纳逻辑块的最大数量。
+
+**文件大小与索引结构的关系：**
+- **小文件**只使用TOC中的直接块，直接块的数量可以根据文件系统的设计而变化。
+- **较大文件**需要使用第一个间接块，这类似于单级页表。
+- **更大的文件**会使用双级间接块，双级间接块指向间接块，如果文件足够大，可能还会使用三级间接块。
+
+**文件系统设计的优化：**
+- 文件系统设计允许存在“逻辑零填充的空洞”——如果文件的一部分未被实际数据占用，相关的块指针可以设置为NULL。当读取这些逻辑块时，系统将返回零值，这避免了实际分配空间给未使用的数据。
+### s5fs: Directories
+- A file of type directory - accessing directory is like any other file
+- Only special directory operations allowed (read dir, link + unlink filenames)
+- s5fs dir is array of 16 byte entries (inode: 16 bits = 2 bytes, filename 14 bytes)
+- deleted file has inode 0
+![image.png](https://images.wu.engineer/images/2023/11/27/202311271827498.png)
+### s5fs: Link + Unlink
+- Create new file: new dir entry with new inode
+- Hard link: new dir entry with inode of the linked file: e.g. `link(path1, path2)`
+- Deleting (deleting is unlink since graph is DAG): remove dir entry, decrement inode link count, free file object when link count = 0 (plus open file condition)
+### s5fs: Conclusion
+UNIX系统的System V文件系统（s5fs）是一个传统的文件系统模型，它为UNIX操作系统提供了基本的文件存储和管理机制。s5fs的设计简单且稳定，它使用了一些核心概念，这些概念在今天的许多文件系统中仍然存在。下面是s5fs的主要特点和组件的总结：
+**inodes**
+- s5fs使用inode（索引节点）来表示文件系统中的每个文件。
+- 每个inode包含了关于文件的所有元数据，除了文件名。
+- inode存储了文件的权限、所有者信息、大小、时间戳、以及文件数据的位置。
+- 文件在目录中的名称通过目录项链接到其inode。
+
+**目录结构**
+- 目录在s5fs中被视为特殊类型的文件，它们包含文件名和相应的inode编号。
+- 目录项映射文件名到实际的文件（硬链接）或路径名（符号链接）。
+
+**文件分配**
+- s5fs利用多级树索引结构来分配文件数据。
+- 这包括直接块指针、单级间接块指针、双级和可能的三级间接块指针。
+- 文件的数据块可以直接通过inode访问，或通过一个或多个间接索引层次访问。
+
+**文件系统参数**
+- 文件系统的性能和能力受到其参数的影响，如直接块的数量、间接层次的数量、逻辑块大小和块指针大小。
+- 不同大小的文件使用不同的索引结构，从直接块到多级间接块。
+
+**优势与局限**
+- s5fs提供了一种简单有效的方式来管理文件和目录，支持了UNIX系统的基本需求。
+- 它通过引用计数和inode机制，有效地处理了文件的创建、删除和硬链接。
+- 尽管s5fs在管理大型文件和大容量存储设备方面有局限性，它为后续更复杂的文件系统设计奠定了基础。
+### Free Storage Space Management
+- Similar to main memory management
+- Linked list organisation
+	- Linking **individual** blocks -- inefficient:
+		- No block clustering to minimise seek operations
+		- Groups of blocks are allocated/released one at a time
+	- Better: Link groups of consecutive blocks
+- Bit map organisation
+	- Analogous to main memory
+	- A single bit per block indicates if free or occupied
