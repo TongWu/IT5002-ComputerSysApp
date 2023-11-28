@@ -2639,7 +2639,6 @@ $$
 ![image-20231018160905026](https://images.wu.engineer/images/2023/10/18/image-20231018160905026.png)
 
 Registers are in the datapath of the processor. If operands are in memory we have to load them to processor (registers), operate on them, and store them back to memory.
-
 #### DRAM
 
 DRAM = DDR SDRAM = Double Data Rate Synchronous Dynamic RAM
@@ -3725,7 +3724,7 @@ schedule() {
 				- *Hard Real Time Systems*: System fails
 				- *Soft Real Time Systems*: Mostly just an inconvenience. Performance of system degraded.
 > **批处理** (Batch Processing)：任务逐一执行，直至完成。在一个任务完成之前不会启动另一个任务
-> **协作多任务处理**（Co-operative Multitasking）：在这种环境中，当前正在运行的进程不会被操作系统的调度器强制挂起。进程必须自愿放弃CPU时间，使得其他进程有机会运行。
+> **协作多任务处理**（Co-operative Multitasking）：在这种环境中，当前正在运行的进程不会被操作系统的调度器强制挂起。进程必须自愿放弃CPU时间，使[]()得其他进程有机会运行。
 > **抢占式多任务处理**（Pre-emptive Multitasking）：在这种模式下，操作系统的调度器可以强制挂起当前运行的进程，以便其他进程可以使用CPU。这样可以确保所有进程都能获得执行的机会。
 > **实时多任务处理**（Real-Time Multitasking）：这种模式要求进程必须在固定的截止时间前完成。如果进程未能在截止时间前完成：
 > 	- **硬实时系统**（Hard Real-Time Systems）：系统死机
