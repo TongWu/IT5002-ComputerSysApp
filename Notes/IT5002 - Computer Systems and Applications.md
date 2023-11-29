@@ -3865,6 +3865,17 @@ Round Robin for Voluntary Scheduling:
 		- Tasks doing `read()` has been waiting for a long time. May need quick response when ready
 		- Blocked/waiting processes have not run much
 		- Applies also to interactive processes - blocked on keyboard/mouse input
+
+### Free Storage Space Management
+- Similar to main memory management
+- Linked list organisation
+	- Linking **individual** blocks -- inefficient:
+		- No block clustering to minimise seek operations
+		- Groups of blocks are allocated/released one at a time
+	- Better: Link groups of consecutive blocks
+- Bit map organisation
+	- Analogous to main memory
+	- A single bit per block indicates if free or occupied
 # 14 - Inter-Process Communication
 ## 14.1 Introduction
 - In previous chapters, we looked at how multiple processes can run on a single CPU
@@ -4386,7 +4397,7 @@ x86: Little Endian, TPC/IP: Big
 	- Key issue: Provide protection (control access)
 ### Hierarchical View of File System
 ![image.png](https://images.wu.engineer/images/2023/11/26/202311262344013.png)
-## 17.2 Files and Dictionaries
+## 17.2 Files and Directories
 ### User's View of File
 - **File name and type**
 	- **Valid** name
@@ -4990,13 +5001,4 @@ UNIX系统的System V文件系统（s5fs）是一个传统的文件系统模型�
 - s5fs提供了一种简单有效的方式来管理文件和目录，支持了UNIX系统的基本需求。
 - 它通过引用计数和inode机制，有效地处理了文件的创建、删除和硬链接。
 - 尽管s5fs在管理大型文件和大容量存储设备方面有局限性，它为后续更复杂的文件系统设计奠定了基础。
-### Free Storage Space Management
-- Similar to main memory management
-- Linked list organisation
-	- Linking **individual** blocks -- inefficient:
-		- No block clustering to minimise seek operations
-		- Groups of blocks are allocated/released one at a time
-	- Better: Link groups of consecutive blocks
-- Bit map organisation
-	- Analogous to main memory
-	- A single bit per block indicates if free or occupied
+
