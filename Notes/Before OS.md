@@ -1,4 +1,4 @@
-# 1 word = 4 bytes, each element in an array cost 1 word
+# 1 word = 4 bytes, 1 byte = 8 bits, each element in an array cost 1 word
 # Datapath
 ### Five stages
 1. IF（指令获取）：在这个阶段，计算机从内存中获取下一条指令。这个阶段的主要任务是从程序存储器（通常是指令缓存或主存）中读取指令并将其送入流水线的下一个阶段，即ID阶段。
